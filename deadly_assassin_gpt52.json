@@ -83,7 +83,7 @@
         "TARDIS materializes and is surrounded",
         "Guards attempt entry using keys",
         "Doctor escapes toward tower and a guard is shot by a shadowy figure",
-        "Search ordered across the tower's floors",
+        "Search ordered across the tower’s floors",
         "TARDIS is later transducted away to the Museum"
       ],
       "atmosphere": "militarized"
@@ -137,7 +137,7 @@
     },
     {
       "name": "Records Room (Capitol Archives / Data Retrieval)",
-      "description": "A secure archival and computing space where Time Lord data extracts are retrieved and analyzed. It contains consoles, data tubes, operating keys, and the APC (Amplified Panatropic Computations) interface used to access the Matrix. Spandrell and Engin use the room to investigate the Doctor's status, the missing registration imbalance, and later the Master's erased records. The room becomes a crisis site when Solis attempts sabotage and when the APC circuits begin to smoke and fail.",
+      "description": "A secure archival and computing space where Time Lord data extracts are retrieved and analyzed. It contains consoles, data tubes, operating keys, and the APC (Amplified Panatropic Computations) interface used to access the Matrix. Spandrell and Engin use the room to investigate the Doctor’s status, the missing registration imbalance, and later the Master’s erased records. The room becomes a crisis site when Solis attempts sabotage and when the APC circuits begin to smoke and fail.",
       "exits": [
         "Chancellery",
         "Capitol Interior Corridors",
@@ -163,12 +163,12 @@
       ],
       "events": [
         "Type 40 registration imbalance discovered",
-        "Doctor's banishment record and CIA addendum revealed",
+        "Doctor’s banishment record and CIA addendum revealed",
         "Debate over whether a DE was withdrawn and how records could be erased",
         "Doctor enters the Matrix via APC",
         "Solis attempts to interfere with APC controls and is shot",
         "APC overload threatens destruction of stored brain patterns",
-        "Post-crisis analysis of the Master's supposed death and poison needle"
+        "Post-crisis analysis of the Master’s supposed death and poison needle"
       ],
       "atmosphere": "clinical"
     },
@@ -198,14 +198,14 @@
         "Spandrell briefs Goth about the Doctor and requests guards",
         "Goth insists on immediate trial and execution timetable",
         "Borusa and Goth argue over tradition vs crisis",
-        "Borusa orders the truth to be 'adjusted' and the Master's corpse cosmetically altered",
+        "Borusa orders the truth to be 'adjusted' and the Master’s corpse cosmetically altered",
         "After the disaster, Borusa blames devastation and orders the Doctor to leave"
       ],
       "atmosphere": "political"
     },
     {
       "name": "Capitol Museum",
-      "description": "A museum space within the Time Lord Capitol where artifacts and regalia are displayed on plinths and in cases. The TARDIS is transducted here and placed on a plinth, allowing the Doctor to emerge inside the Capitol. The Doctor uses the museum's displays to improvise a disguise by taking ceremonial clothing. Spandrell's team later uses a tracker to trace the Doctor's path from the TARDIS to the regalia display.",
+      "description": "A museum space within the Time Lord Capitol where artifacts and regalia are displayed on plinths and in cases. The TARDIS is transducted here and placed on a plinth, allowing the Doctor to emerge inside the Capitol. The Doctor uses the museum’s displays to improvise a disguise by taking ceremonial clothing. Spandrell’s team later uses a tracker to trace the Doctor’s path from the TARDIS to the regalia display.",
       "exits": [
         "Capitol Interior Corridors",
         "Time Lords Robing Room",
@@ -216,7 +216,7 @@
         "Time Lord regalia display (gold robe and headdress)",
         "display cases",
         "hand-held tracking device",
-        "long case clock (later conceals the Master's escape)"
+        "long case clock (later conceals the Master’s escape)"
       ],
       "characters": [
         "Doctor",
@@ -228,15 +228,15 @@
       "events": [
         "TARDIS transducted into museum",
         "Doctor steals/uses regalia for disguise",
-        "Tracker traces Doctor's movements",
+        "Tracker traces Doctor’s movements",
         "Final departure: Doctor returns to TARDIS and dematerialises",
-        "Master's presence revealed via long case clock which dematerialises"
+        "Master’s presence revealed via long case clock which dematerialises"
       ],
       "atmosphere": "deceptively calm"
     },
     {
-      "name": "Adytum (Master's Hidden Chamber)",
-      "description": "A concealed, private chamber used by the Master and his agents to observe and direct events within the Capitol. It contains a couch and later a red metal helmet interface showing an eye-view feed from within the Matrix. The Master issues orders here, including conditioning Solis to sabotage the Doctor's Matrix attempt. The Master and Goth later return here after the Matrix struggle, where the Master berates Goth and attempts a final gambit.",
+      "name": "Adytum (Master’s Hidden Chamber)",
+      "description": "A concealed, private chamber used by the Master and his agents to observe and direct events within the Capitol. It contains a couch and later a red metal helmet interface showing an eye-view feed from within the Matrix. The Master issues orders here, including conditioning Solis to sabotage the Doctor’s Matrix attempt. The Master and Goth later return here after the Matrix struggle, where the Master berates Goth and attempts a final gambit.",
       "exits": [
         "Capitol Interior Corridors (implied)",
         "Matrix (via helmet interface, implied link)"
@@ -250,12 +250,12 @@
       "characters": [
         "Master",
         "Goth",
-        "Master's subordinate (unnamed man)",
+        "Master’s subordinate (unnamed man)",
         "Solis",
         "Hildred (later, finding needle)"
       ],
       "events": [
-        "Master predicts Doctor's movements and orders rapid death",
+        "Master predicts Doctor’s movements and orders rapid death",
         "Helmet feed shows Matrix pursuit",
         "Solis is conditioned to obey only the Master",
         "After Matrix failure, Master removes helmet from Goth and attempts to trap the Doctor",
@@ -289,7 +289,7 @@
     },
     {
       "name": "Panopticon (Main Chamber)",
-      "description": "The grand ceremonial hall of the Time Lords, arranged around a circular central dais with galleries above. It hosts the President's resignation ceremony, the assassination, and later the trial proceedings. A rear panel transforms into steps for the President's entrance, and the dais becomes the focal point of both pageantry and catastrophe. After the Master's later sabotage, the Panopticon shakes and partially collapses as the Eye of Harmony is exposed beneath the floor.",
+      "description": "The grand ceremonial hall of the Time Lords, arranged around a circular central dais with galleries above. It hosts the President’s resignation ceremony, the assassination, and later the trial proceedings. A rear panel transforms into steps for the President’s entrance, and the dais becomes the focal point of both pageantry and catastrophe. After the Master’s later sabotage, the Panopticon shakes and partially collapses as the Eye of Harmony is exposed beneath the floor.",
       "exits": [
         "Panopticon Gallery",
         "Panopticon Antechamber",
@@ -301,7 +301,7 @@
         "central dais",
         "rear panel that becomes steps",
         "ceremonial markings and floor panels",
-        "chalk outline of the President's body",
+        "chalk outline of the President’s body",
         "display case of relics (includes Great Key/Rod)",
         "floor aperture to Eye of Harmony mechanism"
       ],
@@ -330,7 +330,7 @@
     },
     {
       "name": "Panopticon Gallery",
-      "description": "An elevated viewing gallery overlooking the Panopticon dais, used by media and security vantage points. It contains the Public Register camera position and railings where a weapon is assembled and placed. The Doctor enters here to confront the assassination attempt and later returns during the investigation, where Runcible discovers the condensed remains of his technician inside the camera tube. The gallery is repeatedly used by the Master's agents to manipulate evidence and kill witnesses.",
+      "description": "An elevated viewing gallery overlooking the Panopticon dais, used by media and security vantage points. It contains the Public Register camera position and railings where a weapon is assembled and placed. The Doctor enters here to confront the assassination attempt and later returns during the investigation, where Runcible discovers the condensed remains of his technician inside the camera tube. The gallery is repeatedly used by the Master’s agents to manipulate evidence and kill witnesses.",
       "exits": [
         "Panopticon (Main Chamber)",
         "Capitol Interior Corridors"
@@ -360,7 +360,7 @@
     },
     {
       "name": "Panopticon Antechamber",
-      "description": "A formal waiting area adjacent to the Panopticon where the President prepares to enter the ceremony. The Gold Usher checks the President's items, including the resignation honours list, and presents the Rod of Office. It serves as a controlled threshold between private preparation and public ritual. The scene underscores how close the assassination threat is to the heart of the ceremony.",
+      "description": "A formal waiting area adjacent to the Panopticon where the President prepares to enter the ceremony. The Gold Usher checks the President’s items, including the resignation honours list, and presents the Rod of Office. It serves as a controlled threshold between private preparation and public ritual. The scene underscores how close the assassination threat is to the heart of the ceremony.",
       "exits": [
         "Panopticon (Main Chamber)",
         "Capitol Interior Corridors"
@@ -380,7 +380,7 @@
     },
     {
       "name": "Detention Room (Capitol Holding Cage)",
-      "description": "A harsh security chamber designed for high-risk prisoners, featuring a cage atop a pillar reached by a retractable walkway. Entry requires passing through a weapons detector, emphasizing containment and control. The Doctor is chained with his hands above his head and subjected to coercive interrogation. The room embodies the Time Lords' capacity for brutality when politically pressured.",
+      "description": "A harsh security chamber designed for high-risk prisoners, featuring a cage atop a pillar reached by a retractable walkway. Entry requires passing through a weapons detector, emphasizing containment and control. The Doctor is chained with his hands above his head and subjected to coercive interrogation. The room embodies the Time Lords’ capacity for brutality when politically pressured.",
       "exits": [
         "Capitol Interior Corridors"
       ],
@@ -406,7 +406,7 @@
     },
     {
       "name": "Capitol Corridor (Evidence Demonstration Corridor)",
-      "description": "A corridor within the Capitol used by Spandrell and the Doctor to test the rifle's fixed sights. A symbol at the far end becomes the target for a demonstration shot, proving the weapon cannot accurately hit what it appears to aim at. The corridor functions as an investigative space rather than a transit-only area. It marks a turning point where Spandrell begins to accept the Doctor's framing claim.",
+      "description": "A corridor within the Capitol used by Spandrell and the Doctor to test the rifle’s fixed sights. A symbol at the far end becomes the target for a demonstration shot, proving the weapon cannot accurately hit what it appears to aim at. The corridor functions as an investigative space rather than a transit-only area. It marks a turning point where Spandrell begins to accept the Doctor’s framing claim.",
       "exits": [
         "Capitol Interior Corridors (general network)",
         "Panopticon (via escort later)"
@@ -445,13 +445,13 @@
         "Spandrell"
       ],
       "events": [
-        "Doctor requests to be shown what lies beneath the Records Room while tracing Goth's Matrix link"
+        "Doctor requests to be shown what lies beneath the Records Room while tracing Goth’s Matrix link"
       ],
       "atmosphere": "foreboding"
     },
     {
       "name": "Panopticon Vault",
-      "description": "A sealed mortuary vault beneath or adjacent to the Panopticon, used to store bodies and ceremonial dead. It contains biers holding the President, Goth, and the Master's corpse-like body, and later becomes the site of the Master's resurrection ruse and escape. The Master seals the entrance, trapping the Doctor and allies while he proceeds with his plan above. An old sloping service shaft provides a difficult escape route back up to the Panopticon.",
+      "description": "A sealed mortuary vault beneath or adjacent to the Panopticon, used to store bodies and ceremonial dead. It contains biers holding the President, Goth, and the Master’s corpse-like body, and later becomes the site of the Master’s resurrection ruse and escape. The Master seals the entrance, trapping the Doctor and allies while he proceeds with his plan above. An old sloping service shaft provides a difficult escape route back up to the Panopticon.",
       "exits": [
         "Panopticon (via old service shaft)",
         "Capitol Interior Routes (vault door, when unsealed)"
@@ -580,7 +580,7 @@
     },
     {
       "name": "Matrix - Railway Tracks Junction",
-      "description": "A railway intersection illusion with multiple tracks, moving points, and several engines nearby. The drivers' faces are concealed, adding to the uncanny threat. The Doctor's foot is trapped between rails as the points shift, and an oncoming train bears down with a whistle. He survives by throwing himself aside and later frees his foot, recognizing the scenario as an illusion.",
+      "description": "A railway intersection illusion with multiple tracks, moving points, and several engines nearby. The drivers’ faces are concealed, adding to the uncanny threat. The Doctor’s foot is trapped between rails as the points shift, and an oncoming train bears down with a whistle. He survives by throwing himself aside and later frees his foot, recognizing the scenario as an illusion.",
       "exits": [
         "Matrix - Betchworth Quarry"
       ],
@@ -594,14 +594,14 @@
         "Doctor"
       ],
       "events": [
-        "Doctor's foot is trapped by moving points",
+        "Doctor’s foot is trapped by moving points",
         "Train nearly strikes him; he escapes and rejects the illusion"
       ],
       "atmosphere": "panic"
     },
     {
       "name": "Matrix - Quarry Valley and Cliff Face (Hunter Pursuit Zone)",
-      "description": "A broader quarry pursuit area connected to the chalk cliffs, including a valley approach route used by the hunter. The Doctor hides on a cliff face behind a buddleia bush, unaware of a giant spider in its web nearby. The hunter stalks methodically, consulting a map and focusing on the Doctor's need for water. This zone emphasizes pursuit tactics and environmental traps rather than sudden set-piece transitions.",
+      "description": "A broader quarry pursuit area connected to the chalk cliffs, including a valley approach route used by the hunter. The Doctor hides on a cliff face behind a buddleia bush, unaware of a giant spider in its web nearby. The hunter stalks methodically, consulting a map and focusing on the Doctor’s need for water. This zone emphasizes pursuit tactics and environmental traps rather than sudden set-piece transitions.",
       "exits": [
         "Matrix - Poisoned Pool",
         "Matrix - Reed Thicket",
@@ -610,8 +610,8 @@
       "items": [
         "buddleia bush",
         "giant spider and web",
-        "hunter's map",
-        "hunter's rifle fire impacts on chalk cliff"
+        "hunter’s map",
+        "hunter’s rifle fire impacts on chalk cliff"
       ],
       "characters": [
         "Doctor",
@@ -620,13 +620,13 @@
       "events": [
         "Hunter fires repeatedly and misses",
         "Doctor hides near spider web",
-        "Hunter identifies Doctor's need for water and moves to exploit it"
+        "Hunter identifies Doctor’s need for water and moves to exploit it"
       ],
       "atmosphere": "hunted"
     },
     {
       "name": "Matrix - Lightly Wooded Slope (Biplane Attack)",
-      "description": "A lightly wooded area reached by descending from the quarry, where the Doctor is attacked from above by a circling biplane. The plane dives low, buzzes him, and returns for strafing runs, forcing the Doctor to flee in terror. The Doctor's leg appears to bleed, then the injury vanishes and returns, demonstrating the Master's control over psychosomatic effects. The setting blends natural cover with aerial threat, keeping the Doctor moving.",
+      "description": "A lightly wooded area reached by descending from the quarry, where the Doctor is attacked from above by a circling biplane. The plane dives low, buzzes him, and returns for strafing runs, forcing the Doctor to flee in terror. The Doctor’s leg appears to bleed, then the injury vanishes and returns, demonstrating the Master’s control over psychosomatic effects. The setting blends natural cover with aerial threat, keeping the Doctor moving.",
       "exits": [
         "Matrix - Betchworth Quarry",
         "Matrix - Quarry Valley and Cliff Face"
@@ -643,13 +643,13 @@
       ],
       "events": [
         "Biplane performs multiple attack runs",
-        "Doctor's bleeding injury appears and disappears as he denies it"
+        "Doctor’s bleeding injury appears and disappears as he denies it"
       ],
       "atmosphere": "harrying"
     },
     {
       "name": "Matrix - Reed Thicket (Water Trap Area)",
-      "description": "A dense reed thicket near a water source where the hunter contaminates the pool with a green liquid. The hunter retreats into the reeds to conceal his actions, setting a trap for the Doctor's thirst. The Doctor later uses reeds both as tools and as cover, moving between concealment and the water's edge. The thicket's density makes visibility poor and ambush likely.",
+      "description": "A dense reed thicket near a water source where the hunter contaminates the pool with a green liquid. The hunter retreats into the reeds to conceal his actions, setting a trap for the Doctor’s thirst. The Doctor later uses reeds both as tools and as cover, moving between concealment and the water’s edge. The thicket’s density makes visibility poor and ambush likely.",
       "exits": [
         "Matrix - Poisoned Pool",
         "Matrix - Quarry Valley and Cliff Face"
@@ -671,7 +671,7 @@
     },
     {
       "name": "Matrix - Poisoned Pool",
-      "description": "A pool that appears to offer relief but is deliberately poisoned by the hunter. The Doctor stops himself from drinking, finds the discarded bottle, and confirms contamination by smell. He improvises a reed straw to draw safer water from the margins, demonstrating adaptation under pressure. The pool becomes a tactical pivot point where the Doctor turns the hunter's trap into an opportunity.",
+      "description": "A pool that appears to offer relief but is deliberately poisoned by the hunter. The Doctor stops himself from drinking, finds the discarded bottle, and confirms contamination by smell. He improvises a reed straw to draw safer water from the margins, demonstrating adaptation under pressure. The pool becomes a tactical pivot point where the Doctor turns the hunter’s trap into an opportunity.",
       "exits": [
         "Matrix - Reed Thicket",
         "Matrix - Thicket and Tree Ambush Zone"
@@ -693,7 +693,7 @@
     },
     {
       "name": "Matrix - Thicket and Tree Ambush Zone",
-      "description": "A mixed thicket and tree area where the Doctor sets an ambush using a poisoned thorn as a blowpipe dart. He pricks himself on thorns while moving through cover, then climbs a tree to gain position. The hunter approaches cautiously, is struck in the thigh, and fires back, wounding the Doctor's upper arm. The zone emphasizes improvised weaponry and close-range cat-and-mouse tactics.",
+      "description": "A mixed thicket and tree area where the Doctor sets an ambush using a poisoned thorn as a blowpipe dart. He pricks himself on thorns while moving through cover, then climbs a tree to gain position. The hunter approaches cautiously, is struck in the thigh, and fires back, wounding the Doctor’s upper arm. The zone emphasizes improvised weaponry and close-range cat-and-mouse tactics.",
       "exits": [
         "Matrix - Marsh"
       ],
@@ -717,7 +717,7 @@
     },
     {
       "name": "Matrix - Marsh (Marsh Gas Battleground)",
-      "description": "A marshy landscape with unstable footing and pockets of marsh gas, forcing the Doctor to use a branch as a walking aid. The environment is physically exhausting and amplifies the Doctor's weakening condition. It becomes the final confrontation site where Goth reveals himself and the marsh gas is ignited by gunfire, setting Goth ablaze. The fight devolves into brutal hand-to-hand struggle in shallow water.",
+      "description": "A marshy landscape with unstable footing and pockets of marsh gas, forcing the Doctor to use a branch as a walking aid. The environment is physically exhausting and amplifies the Doctor’s weakening condition. It becomes the final confrontation site where Goth reveals himself and the marsh gas is ignited by gunfire, setting Goth ablaze. The fight devolves into brutal hand-to-hand struggle in shallow water.",
       "exits": [
         "Matrix - Vortex Exit (return to reality)"
       ],
@@ -765,7 +765,7 @@
       "Master (later)",
       "Master (voice/creator presence)",
       "Master (voice/laughter)",
-      "Master's subordinate (unnamed man)",
+      "Master’s subordinate (unnamed man)",
       "President",
       "President (corpse)",
       "Runcible",
@@ -797,7 +797,7 @@
       "Records Room (Capitol Archives / Data Retrieval)",
       "Chancellery (High Council Offices)",
       "Capitol Museum",
-      "Adytum (Master's Hidden Chamber)",
+      "Adytum (Master’s Hidden Chamber)",
       "Time Lords Robing Room",
       "Panopticon (Main Chamber)",
       "Panopticon Gallery",

@@ -148,8 +148,43 @@ class TestGoldStandardComparison:
     These tests verify that an LLM can extract room data from a known
     transcript and produce results comparable to a validated gold standard.
 
-    The gold standard was generated using OpenAI gpt-4o and manually verified.
+    The gold standard was generated using OpenAI gpt-5.2 (December 2025) and manually verified.
+    It contains 28 rooms: 18 Capitol/physical locations and 10 Matrix environments.
     """
+
+    # Expected room names from the gold standard (28 total)
+    EXPECTED_ROOM_NAMES = [
+        # Capitol/Physical Locations (18)
+        "TARDIS - Wooden Console Room",
+        "TARDIS - Interior Rooms (Storage/Side Room)",
+        "Gallifrey - Sector 7 (Capitol Perimeter / Cloisters Zone)",
+        "Communications Tower - Lift (Sector 7)",
+        "Communications Tower - Floors (Sector 7)",
+        "Records Room (Capitol Archives / Data Retrieval)",
+        "Chancellery (High Council Offices)",
+        "Capitol Museum",
+        "Adytum (Master's Hidden Chamber)",
+        "Time Lords Robing Room",
+        "Panopticon (Main Chamber)",
+        "Panopticon Gallery",
+        "Panopticon Antechamber",
+        "Detention Room (Capitol Holding Cage)",
+        "Capitol Corridor (Evidence Demonstration Corridor)",
+        "Service Ducts and Foundations (Below Records Room)",
+        "Panopticon Vault",
+        "Panopticon - Eye of Harmony Chamber (Under-Dais Mechanism)",
+        # Matrix Environments (10)
+        "Matrix - Betchworth Quarry",
+        "Matrix - Operating Theatre",
+        "Matrix - World War One Battlefield",
+        "Matrix - Railway Tracks Junction",
+        "Matrix - Quarry Valley and Cliff Face (Hunter Pursuit Zone)",
+        "Matrix - Lightly Wooded Slope (Biplane Attack)",
+        "Matrix - Reed Thicket (Water Trap Area)",
+        "Matrix - Poisoned Pool",
+        "Matrix - Thicket and Tree Ambush Zone",
+        "Matrix - Marsh (Marsh Gas Battleground)",
+    ]
 
     PDF_PATH = "The Doctor Who Transcripts - The Deadly Assassin.pdf"
     GOLD_STANDARD_PATH = "tests/fixtures/deadly_assassin_gold.json"
@@ -205,3 +240,33 @@ class TestGoldStandardComparison:
         assert actual_count == expected_count, (
             f"Room count mismatch: expected {expected_count}, got {actual_count}"
         )
+
+    def test_gold_standard_has_expected_rooms(self):
+        """Verify the gold standard fixture contains all 28 expected rooms."""
+        gold_room_names = [room["name"] for room in self.gold["rooms"]]
+
+        assert len(gold_room_names) == 28, f"Expected 28 rooms, got {len(gold_room_names)}"
+
+        for expected_name in self.EXPECTED_ROOM_NAMES:
+            assert expected_name in gold_room_names, f"Missing expected room: {expected_name}"
+
+        for actual_name in gold_room_names:
+            assert actual_name in self.EXPECTED_ROOM_NAMES, f"Unexpected room in gold standard: {actual_name}"
+
+    def test_gold_standard_room_structure(self):
+        """Verify each room in gold standard has required fields."""
+        required_fields = ["name", "description", "exits", "items", "characters", "events", "atmosphere"]
+
+        for room in self.gold["rooms"]:
+            for field in required_fields:
+                assert field in room, f"Room '{room.get('name', 'unknown')}' missing field: {field}"
+
+    def test_gold_standard_matrix_rooms_count(self):
+        """Verify gold standard contains exactly 10 Matrix environments."""
+        matrix_rooms = [r for r in self.gold["rooms"] if r["name"].startswith("Matrix -")]
+        assert len(matrix_rooms) == 10, f"Expected 10 Matrix rooms, got {len(matrix_rooms)}"
+
+    def test_gold_standard_capitol_rooms_count(self):
+        """Verify gold standard contains exactly 18 Capitol/physical locations."""
+        non_matrix_rooms = [r for r in self.gold["rooms"] if not r["name"].startswith("Matrix -")]
+        assert len(non_matrix_rooms) == 18, f"Expected 18 Capitol rooms, got {len(non_matrix_rooms)}"

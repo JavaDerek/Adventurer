@@ -224,6 +224,10 @@ JSON array:"""
 
         try:
             # Use streaming to avoid timeout with slow models
+            # Newer models (gpt-5.x, o1, o3, o4) use max_completion_tokens instead of max_tokens
+            use_new_param = any(x in self.model.lower() for x in ['gpt-5', 'o1', 'o3', 'o4'])
+            token_param = {"max_completion_tokens": MAX_TOKENS} if use_new_param else {"max_tokens": MAX_TOKENS}
+
             stream = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -231,7 +235,7 @@ JSON array:"""
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=TEMPERATURE,
-                max_tokens=MAX_TOKENS,
+                **token_param,
                 stream=True
             )
 
