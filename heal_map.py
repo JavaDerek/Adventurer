@@ -49,9 +49,9 @@ Fix this map to create a fully connected, playable interactive fiction game. You
 
 1. **Add return paths** for one-way doors (most rooms should have bidirectional connections)
 
-2. **Create transition rooms** where needed to connect disconnected areas. For example:
-   - If there's a "Matrix" area disconnected from the main world, create an "APC Chamber" or similar room that connects them
-   - These transition rooms should feel natural to the narrative
+2. **Create transition rooms** where needed to connect disconnected areas:
+   - If there are separate areas (e.g., a dream world, underground, different buildings), create logical transition rooms
+   - These transition rooms should feel natural to the narrative (hallways, portals, staircases, etc.)
 
 3. **Resolve broken references** by either:
    - Creating the missing room if it makes sense narratively
@@ -61,7 +61,7 @@ Fix this map to create a fully connected, playable interactive fiction game. You
 4. **Add puzzle hints** where appropriate:
    - Some connections can require items or solving puzzles
    - Add an optional "requires" field to exits that should be locked
-   - Example: {{"exit": "Matrix - Quarry", "requires": "neural_link_active"}}
+   - Example: {{"exit": "Secret Chamber", "requires": "golden_key"}}
 
 5. **Ensure all rooms are reachable** from the starting room ({start_room})
 
@@ -96,7 +96,7 @@ Important:
 - Keep all existing room data intact unless fixing an issue
 - Maintain the narrative tone and atmosphere of the original
 - Make the game interesting but fair - every room should be reachable
-- The Matrix should require some mechanism to enter (like using the APC)
+- Special areas (dreams, alternate dimensions, restricted zones) should require some mechanism to enter
 
 Return ONLY the JSON object, no additional text."""
 
@@ -112,10 +112,15 @@ class MapHealer:
         )
         self.model = model
 
-    def heal_map(self, rooms_data: dict, start_room: str = "TARDIS") -> dict:
+    def heal_map(self, rooms_data: dict, start_room: str = None) -> dict:
         """Heal the map using LLM analysis."""
         # Run analyzer to get issues
         analyzer = MapAnalyzer(rooms_data)
+
+        # Default to first room if not specified
+        if start_room is None:
+            rooms = rooms_data.get("rooms", [])
+            start_room = rooms[0].get("name", "Start") if rooms else "Start"
 
         broken_refs = analyzer.find_broken_references()
         one_way = analyzer.find_one_way_doors()
@@ -140,11 +145,10 @@ class MapHealer:
         subgraphs_text = ""
         if len(subgraphs) > 1:
             for i, sg in enumerate(subgraphs, 1):
-                label = "Matrix" if any("Matrix" in r for r in sg) else f"Area {i}"
                 rooms_list = ", ".join(sorted(sg)[:5])
                 if len(sg) > 5:
                     rooms_list += f", ... ({len(sg)} rooms total)"
-                subgraphs_text += f"  Subgraph {i} ({label}): {rooms_list}\n"
+                subgraphs_text += f"  Subgraph {i}: {rooms_list}\n"
         else:
             subgraphs_text = "  All rooms are connected"
 
@@ -273,7 +277,7 @@ Examples:
   python heal_map.py rooms.json                    # Use remote OpenAI (default)
   python heal_map.py --local rooms.json            # Use local LLM
   python heal_map.py rooms.json -o healed.json     # Specify output file
-  python heal_map.py rooms.json --start "TARDIS"   # Specify starting room
+  python heal_map.py rooms.json --start "Entrance"  # Specify starting room
 
 Environment variables:
   OpenAI:     OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL
@@ -290,8 +294,8 @@ Environment variables:
     )
     parser.add_argument(
         "-s", "--start",
-        default="TARDIS",
-        help="Starting room for connectivity analysis (default: TARDIS)"
+        default=None,
+        help="Starting room for connectivity analysis (default: first room in file)"
     )
     parser.add_argument(
         "--local", "-l",

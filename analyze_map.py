@@ -133,8 +133,12 @@ class MapAnalyzer:
 
         return subgraphs
 
-    def generate_report(self, start_room: str = "TARDIS") -> str:
+    def generate_report(self, start_room: str = None) -> str:
         """Generate a human-readable connectivity report."""
+        # Default to first room if not specified
+        if start_room is None:
+            start_room = next(iter(self.rooms.keys()), "Unknown")
+
         lines = []
         lines.append("=" * 50)
         lines.append("MAP ANALYSIS REPORT")
@@ -195,14 +199,7 @@ class MapAnalyzer:
         lines.append("-" * 50)
         if len(subgraphs) > 1:
             for i, subgraph in enumerate(subgraphs, 1):
-                # Try to identify the subgraph
-                if any("Matrix" in r for r in subgraph):
-                    label = "Matrix"
-                elif any("TARDIS" in r or "Capitol" in r or "Panopticon" in r for r in subgraph):
-                    label = "Capitol"
-                else:
-                    label = f"Group {i}"
-                lines.append(f"  Subgraph {i} ({label}, {len(subgraph)} rooms):")
+                lines.append(f"  Subgraph {i} ({len(subgraph)} rooms):")
                 for room in sorted(subgraph):
                     lines.append(f"    - {room}")
                 lines.append("")
@@ -212,8 +209,12 @@ class MapAnalyzer:
         lines.append("=" * 50)
         return "\n".join(lines)
 
-    def to_json_report(self, start_room: str = "TARDIS") -> dict:
+    def to_json_report(self, start_room: str = None) -> dict:
         """Generate a JSON-formatted connectivity report."""
+        # Default to first room if not specified
+        if start_room is None:
+            start_room = next(iter(self.rooms.keys()), "Unknown")
+
         reachable = self.find_reachable(start_room)
         unreachable = self.find_unreachable_rooms(start_room)
         broken = self.find_broken_references()
@@ -250,8 +251,8 @@ def main():
     )
     parser.add_argument(
         "--start", "-s",
-        default="TARDIS",
-        help="Starting room for reachability analysis (default: TARDIS)"
+        default=None,
+        help="Starting room for reachability analysis (default: first room in file)"
     )
     parser.add_argument(
         "--format", "-f",
