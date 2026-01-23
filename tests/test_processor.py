@@ -398,6 +398,197 @@ class TestProcessPdf:
         mock_file.assert_called_with("My Episode_rooms_full.json", 'w', encoding='utf-8')
 
 
+class TestExtractJsonFromResponse:
+    """Tests for the extract_json_from_response fallback method"""
+
+    def test_direct_json_array(self):
+        """Should parse clean JSON array directly"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+        response = '[{"name": "TARDIS"}, {"name": "Panopticon"}]'
+
+        result = processor.extract_json_from_response(response)
+
+        assert len(result) == 2
+        assert result[0]["name"] == "TARDIS"
+
+    def test_json_object_with_rooms_key(self):
+        """Should extract rooms array from object with rooms key"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+        response = '{"rooms": [{"name": "TARDIS"}]}'
+
+        result = processor.extract_json_from_response(response)
+
+        assert len(result) == 1
+        assert result[0]["name"] == "TARDIS"
+
+    def test_markdown_json_block(self):
+        """Should extract from ```json code blocks"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+        response = 'Here is the JSON:\n```json\n[{"name": "TARDIS"}]\n```\nDone!'
+
+        result = processor.extract_json_from_response(response)
+
+        assert len(result) == 1
+        assert result[0]["name"] == "TARDIS"
+
+    def test_plain_markdown_block(self):
+        """Should extract from plain ``` code blocks"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+        response = '```\n[{"name": "TARDIS"}]\n```'
+
+        result = processor.extract_json_from_response(response)
+
+        assert len(result) == 1
+        assert result[0]["name"] == "TARDIS"
+
+    def test_json_array_with_surrounding_text(self):
+        """Should find JSON array boundaries in mixed text"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+        response = 'Here are the rooms: [{"name": "TARDIS"}, {"name": "Matrix"}] Hope this helps!'
+
+        result = processor.extract_json_from_response(response)
+
+        assert len(result) == 2
+
+    def test_rooms_object_with_surrounding_text(self):
+        """Should find {"rooms": ...} object in mixed text"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+        response = 'Output: {"rooms": [{"name": "TARDIS"}]} end'
+
+        result = processor.extract_json_from_response(response)
+
+        assert len(result) == 1
+
+    def test_invalid_json_returns_empty(self):
+        """Should return empty list for unparseable content"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+        response = 'This is not JSON at all'
+
+        result = processor.extract_json_from_response(response)
+
+        assert result == []
+
+    def test_nested_brackets_handled(self):
+        """Should handle nested JSON structures correctly"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+        response = '[{"name": "TARDIS", "items": ["console", "lever"]}]'
+
+        result = processor.extract_json_from_response(response)
+
+        assert len(result) == 1
+        assert result[0]["items"] == ["console", "lever"]
+
+
+class TestGetLlmConfig:
+    """Tests for the get_llm_config function"""
+
+    @patch.dict('os.environ', {
+        'OPENAI_API_KEY': 'sk-test-key',
+        'OPENAI_MODEL': 'gpt-4o',
+        'OPENAI_BASE_URL': 'https://api.openai.com/v1'
+    })
+    def test_remote_config(self):
+        """Should return OpenAI config when use_remote=True"""
+        from process_transcript_full import get_llm_config
+
+        api_base, api_key, model, mode_name = get_llm_config(use_remote=True)
+
+        assert api_base == 'https://api.openai.com/v1'
+        assert api_key == 'sk-test-key'
+        assert model == 'gpt-4o'
+        assert 'remote' in mode_name.lower()
+
+    @patch.dict('os.environ', {
+        'LLM_BASE_URL': 'http://localhost:1234/v1',
+        'LLM_API_KEY': 'lm-studio',
+        'LLM_MODEL': 'qwen2.5-32b-instruct'
+    })
+    def test_local_config(self):
+        """Should return local LLM config when use_remote=False"""
+        from process_transcript_full import get_llm_config
+
+        api_base, api_key, model, mode_name = get_llm_config(use_remote=False)
+
+        assert api_base == 'http://localhost:1234/v1'
+        assert api_key == 'lm-studio'
+        assert model == 'qwen2.5-32b-instruct'
+        assert 'local' in mode_name.lower()
+
+    @patch.dict('os.environ', {'OPENAI_API_KEY': '', 'OPENAI_MODEL': 'gpt-4o'}, clear=True)
+    def test_remote_missing_key_exits(self):
+        """Should exit if OPENAI_API_KEY is missing for remote"""
+        from process_transcript_full import get_llm_config
+
+        with pytest.raises(SystemExit):
+            get_llm_config(use_remote=True)
+
+    @patch.dict('os.environ', {'OPENAI_API_KEY': 'sk-your-key-here'}, clear=True)
+    def test_remote_placeholder_key_exits(self):
+        """Should exit if OPENAI_API_KEY is still placeholder"""
+        from process_transcript_full import get_llm_config
+
+        with pytest.raises(SystemExit):
+            get_llm_config(use_remote=True)
+
+
+class TestExtractAllRoomsErrorHandling:
+    """Tests for error handling in extract_all_rooms"""
+
+    def test_json_decode_error_triggers_fallback(self):
+        """Should use fallback parser when initial JSON parse fails"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+        processor.model = "test-model"
+
+        # Response with text before JSON (will fail initial parse but fallback succeeds)
+        response = 'Here is the data: [{"name": "TARDIS"}]'
+
+        mock_chunk = Mock()
+        mock_chunk.choices = [Mock()]
+        mock_chunk.choices[0].delta.content = response
+
+        mock_client = Mock()
+        mock_client.chat.completions.create.return_value = iter([mock_chunk])
+        processor.client = mock_client
+
+        result = processor.extract_all_rooms("text")
+
+        assert len(result) == 1
+        assert result[0]["name"] == "TARDIS"
+
+    def test_api_exception_returns_empty(self):
+        """Should return empty list on API exception"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+        processor.model = "test-model"
+
+        mock_client = Mock()
+        mock_client.chat.completions.create.side_effect = Exception("API Error")
+        processor.client = mock_client
+
+        result = processor.extract_all_rooms("text")
+
+        assert result == []
+
+    def test_completely_invalid_response_returns_empty(self):
+        """Should return empty list when all parsing strategies fail"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+        processor.model = "test-model"
+
+        # Response that can't be parsed as JSON at all
+        response = 'I cannot extract any rooms from this transcript.'
+
+        mock_chunk = Mock()
+        mock_chunk.choices = [Mock()]
+        mock_chunk.choices[0].delta.content = response
+
+        mock_client = Mock()
+        mock_client.chat.completions.create.return_value = iter([mock_chunk])
+        processor.client = mock_client
+
+        result = processor.extract_all_rooms("text")
+
+        assert result == []
+
+
 class TestJsonExtraction:
     """Tests for JSON extraction from various response formats"""
 
