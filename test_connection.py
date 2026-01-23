@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Test your local LLM connection
+Test your LLM connection (local or remote)
 """
 
+import argparse
 import os
 import sys
 from openai import OpenAI
@@ -11,15 +12,37 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-def test_connection():
-    """Test connection to local LLM"""
 
-    # Support both LLM_BASE_URL and LLM_API_BASE
-    api_base = os.getenv("LLM_BASE_URL") or os.getenv("LLM_API_BASE", "http://localhost:8000/v1")
-    api_key = os.getenv("LLM_API_KEY", "lm-studio")
-    model = os.getenv("LLM_MODEL", "local-model")
+def get_llm_config(use_remote: bool) -> tuple:
+    """Get LLM configuration based on remote/local flag.
 
-    print(f"🔍 Testing connection to local LLM...")
+    Returns:
+        tuple: (api_base, api_key, model, mode_name)
+    """
+    if use_remote:
+        api_base = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+        api_key = os.getenv("OPENAI_API_KEY")
+        model = os.getenv("OPENAI_MODEL", "gpt-4o")
+
+        if not api_key or api_key == "sk-your-key-here":
+            print("❌ Error: OPENAI_API_KEY not set in .env file")
+            print("   Get your API key from: https://platform.openai.com/api-keys")
+            sys.exit(1)
+
+        return api_base, api_key, model, "remote (OpenAI)"
+    else:
+        api_base = os.getenv("LLM_BASE_URL") or os.getenv("LLM_API_BASE", "http://localhost:8000/v1")
+        api_key = os.getenv("LLM_API_KEY", "lm-studio")
+        model = os.getenv("LLM_MODEL", "local-model")
+        return api_base, api_key, model, "local"
+
+
+def test_connection(use_remote: bool = False):
+    """Test connection to LLM"""
+
+    api_base, api_key, model, mode_name = get_llm_config(use_remote)
+
+    print(f"🔍 Testing connection to {mode_name} LLM...")
     print(f"   API Base: {api_base}")
     print(f"   Model: {model}\n")
 
@@ -110,13 +133,23 @@ def test_connection():
 
 
 if __name__ == "__main__":
-    # Load .env if it exists
-    try:
-        from dotenv import load_dotenv
-        load_dotenv()
-    except ImportError:
-        print("💡 Tip: Install python-dotenv to use .env files")
-        print("   pip install python-dotenv\n")
+    parser = argparse.ArgumentParser(
+        description="Test LLM connection (local or remote)"
+    )
 
-    success = test_connection()
+    llm_group = parser.add_mutually_exclusive_group()
+    llm_group.add_argument(
+        "-r", "--remote",
+        action="store_true",
+        help="Test OpenAI API connection"
+    )
+    llm_group.add_argument(
+        "-l", "--local",
+        action="store_true",
+        help="Test local LLM connection (default)"
+    )
+
+    args = parser.parse_args()
+
+    success = test_connection(use_remote=args.remote)
     sys.exit(0 if success else 1)

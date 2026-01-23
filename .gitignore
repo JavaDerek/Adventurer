@@ -47,6 +47,9 @@ Thumbs.db
 *_rooms.json
 *_rooms_full*.json
 
+# Exception: test fixtures should be tracked
+!tests/fixtures/
+
 # Claude Code
 .claude/
 

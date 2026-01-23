@@ -1,13 +1,13 @@
-# Doctor Who Transcript to Interactive Fiction Converter
+# Fiction to Interactive Fiction Converter
 
 [![CI](https://github.com/YOUR_USERNAME/Adventurer/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/Adventurer/actions/workflows/ci.yml)
 
-This tool processes Doctor Who transcripts (in PDF format) and uses a local LLM to extract structured room/location data for creating interactive fiction games.
+This tool processes fiction transcripts (in PDF format) and uses an LLM to extract structured room/location data for creating interactive fiction games. Supports both local LLMs and OpenAI API.
 
 ## Features
 
 - 📄 Extracts text from PDF transcripts
-- 🤖 Uses your local LLM with **full context** (no chunking) for best quality
+- 🤖 Supports **local LLMs** (LM Studio, etc.) and **OpenAI API**
 - 🔄 Streaming support for large models (handles slow generation gracefully)
 - 🏗️ Creates structured JSON with room descriptions, characters, items, and events
 - 🔄 Automatically merges duplicate locations
@@ -27,7 +27,7 @@ This tool processes Doctor Who transcripts (in PDF format) and uses a local LLM 
 pip install -r requirements.txt
 ```
 
-### 2. Configure Your Local LLM
+### 2. Configure Your LLM
 
 Copy the example environment file:
 
@@ -35,12 +35,20 @@ Copy the example environment file:
 cp .env.example .env
 ```
 
-Edit `.env` to match your local LLM setup:
+Edit `.env` to configure your LLM(s):
 
 ```env
+# Local LLM Configuration (for --local flag, default)
 LLM_BASE_URL=http://localhost:1234/v1
 LLM_MODEL=qwen2.5-32b-instruct
 LLM_API_KEY=lm-studio
+
+# OpenAI Configuration (for --remote flag)
+OPENAI_API_KEY=sk-your-key-here
+OPENAI_MODEL=gpt-4o
+OPENAI_BASE_URL=https://api.openai.com/v1
+
+# Generation parameters
 MAX_TOKENS=8000
 TEMPERATURE=0.0
 ```
@@ -59,7 +67,7 @@ For best results, use an **Instruct-tuned** model (not Coder models):
 
 ## Usage
 
-### Basic Usage
+### Basic Usage (Local LLM)
 
 ```bash
 python process_transcript_full.py "transcript.pdf"
@@ -67,17 +75,73 @@ python process_transcript_full.py "transcript.pdf"
 
 This creates `transcript_rooms_full.json`
 
+### Use OpenAI API
+
+```bash
+python process_transcript_full.py --remote "transcript.pdf"
+# or
+python process_transcript_full.py -r "transcript.pdf"
+```
+
 ### Specify Output File
 
 ```bash
 python process_transcript_full.py input.pdf output.json
+python process_transcript_full.py --remote input.pdf output.json
 ```
 
 ### Test Your Connection
 
 ```bash
-python test_connection.py
+# Test local LLM
+python test_connection.py --local
+
+# Test OpenAI API
+python test_connection.py --remote
 ```
+
+## Recommended Workflow
+
+For best results, we recommend a **hybrid approach**:
+
+### 1. Use OpenAI (`--remote`) for Room Extraction
+
+Room extraction is a **one-time setup task** that benefits from maximum accuracy. OpenAI's gpt-4o consistently extracts all locations with high-quality descriptions.
+
+```bash
+python process_transcript_full.py --remote "transcript.pdf"
+```
+
+**Cost**: Approximately $0.02-0.05 per transcript (a few cents for a full episode).
+
+### 2. Use Local LLM for Runtime Gameplay
+
+Once you have structured room data, the **runtime gameplay engine** can use a local LLM for:
+- NPC dialogue generation
+- Dynamic event descriptions
+- Player action interpretation
+
+Local models are ideal here because:
+- Responses need to be fast (< 1 second)
+- Tasks are simpler (no complex JSON extraction)
+- Volume is high (many calls per play session)
+
+### Why This Split?
+
+| Task | Best Choice | Reason |
+|------|-------------|--------|
+| Room extraction | OpenAI | One-time, accuracy-critical, complex JSON |
+| Gameplay runtime | Local LLM | Fast, high-volume, simpler prompts |
+
+### Testing Your Local LLM
+
+The gold standard integration test benchmarks your local LLM against OpenAI's output:
+
+```bash
+pytest tests/test_integration.py::TestGoldStandardComparison -v
+```
+
+If your local hardware can match the gold standard (20 rooms for the test transcript), you can use `--local` for everything!
 
 ## Output Format
 
@@ -123,11 +187,14 @@ The script generates JSON in this format:
 # Install dev dependencies
 pip install -r requirements-dev.txt
 
-# Run tests
-python -m pytest tests/ -v
+# Run unit tests only (mocked, no LLM calls - what CI runs)
+python -m pytest tests/ -v -m "not integration"
 
 # Run with coverage
-python -m pytest tests/ --cov=. --cov-report=term-missing
+python -m pytest tests/ --cov=. --cov-report=term-missing -m "not integration"
+
+# Run integration tests (requires LLM access)
+python -m pytest tests/ -v -m integration
 ```
 
 ### Project Structure
@@ -136,8 +203,12 @@ python -m pytest tests/ --cov=. --cov-report=term-missing
 ├── process_transcript_full.py  # Main processor (full context + streaming)
 ├── test_connection.py          # LLM connection test utility
 ├── tests/
-│   └── test_processor.py       # Unit tests (mocked, no LLM calls)
+│   ├── test_processor.py       # Unit tests (mocked, no LLM calls)
+│   ├── test_integration.py     # Integration tests (real LLM calls)
+│   └── conftest.py             # Pytest configuration
 ├── .env.example                # Example configuration
+├── .coveragerc                 # Coverage configuration
+├── pytest.ini                  # Pytest markers configuration
 ├── requirements.txt            # Production dependencies
 ├── requirements-dev.txt        # Development dependencies
 └── .github/workflows/ci.yml    # GitHub Actions CI

@@ -4,9 +4,11 @@ Doctor Who Transcript to Interactive Fiction Processor (Full Context Version)
 Uses the full 128K context window to process entire transcripts at once
 """
 
+import argparse
 import json
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any
 import PyPDF2
@@ -88,90 +90,134 @@ class FullContextProcessor:
 
         return list(seen.values())
 
+    def extract_json_from_response(self, response_text: str) -> List[Dict[str, Any]]:
+        """Extract JSON from various response formats with multiple fallback strategies."""
+        # Strategy 1: Direct parse (clean JSON response)
+        try:
+            data = json.loads(response_text)
+            if isinstance(data, dict) and "rooms" in data:
+                return data["rooms"]
+            elif isinstance(data, list):
+                return data
+        except json.JSONDecodeError:
+            pass
+
+        # Strategy 2: Extract from markdown code blocks
+        if "```json" in response_text:
+            try:
+                json_text = response_text.split("```json")[1].split("```")[0].strip()
+                data = json.loads(json_text)
+                if isinstance(data, dict) and "rooms" in data:
+                    return data["rooms"]
+                elif isinstance(data, list):
+                    return data
+            except (json.JSONDecodeError, IndexError):
+                pass
+
+        if "```" in response_text:
+            try:
+                json_text = response_text.split("```")[1].split("```")[0].strip()
+                data = json.loads(json_text)
+                if isinstance(data, dict) and "rooms" in data:
+                    return data["rooms"]
+                elif isinstance(data, list):
+                    return data
+            except (json.JSONDecodeError, IndexError):
+                pass
+
+        # Strategy 3: Find JSON array boundaries
+        start = response_text.find('[')
+        if start >= 0:
+            # Try to find matching close bracket by counting depth
+            depth = 0
+            for i in range(start, len(response_text)):
+                if response_text[i] == '[':
+                    depth += 1
+                elif response_text[i] == ']':
+                    depth -= 1
+                    if depth == 0:
+                        try:
+                            data = json.loads(response_text[start:i+1])
+                            if isinstance(data, list):
+                                return data
+                        except json.JSONDecodeError:
+                            pass
+                        break
+
+        # Strategy 4: Find JSON object with "rooms" key
+        start = response_text.find('{"rooms"')
+        if start >= 0:
+            depth = 0
+            for i in range(start, len(response_text)):
+                if response_text[i] == '{':
+                    depth += 1
+                elif response_text[i] == '}':
+                    depth -= 1
+                    if depth == 0:
+                        try:
+                            data = json.loads(response_text[start:i+1])
+                            if isinstance(data, dict) and "rooms" in data:
+                                return data["rooms"]
+                        except json.JSONDecodeError:
+                            pass
+                        break
+
+        return []
+
     def extract_all_rooms(self, text: str) -> List[Dict[str, Any]]:
         """Use LLM with full context to extract all rooms at once"""
 
-        system_prompt = """You are a JSON data extraction system. You analyze dramatic scripts and output structured JSON data.
+        system_prompt = """Extract all distinct locations from a dramatic script and return them as a JSON array.
 
-Example output format:
+EXAMPLE INPUT:
+[Scene: The TARDIS materializes in the Panopticon]
+DOCTOR: Where are we?
+RUNCIBLE: This is the Panopticon, the great hall of Time Lords.
+[The Doctor runs through the Matrix, finding himself in a quarry]
+
+EXAMPLE OUTPUT:
 [
   {
-    "name": "TARDIS Console Room",
-    "description": "The central control room of the TARDIS with a hexagonal console.",
-    "exits": ["TARDIS Corridor"],
-    "items": ["Time Rotor", "Console"],
-    "characters": ["The Doctor"],
-    "events": ["Doctor receives distress signal"],
-    "atmosphere": "mysterious"
+    "name": "Panopticon",
+    "description": "The great ceremonial hall where Time Lords gather for important ceremonies and political events.",
+    "exits": ["Panopticon Gallery", "Chancellery"],
+    "items": ["ceremonial dais", "viewing galleries"],
+    "characters": ["Doctor", "Runcible"],
+    "events": ["TARDIS materializes", "ceremony begins"],
+    "atmosphere": "formal"
+  },
+  {
+    "name": "Matrix - Quarry",
+    "description": "A virtual quarry environment within the Matrix, with steep chalk cliffs and loose rocks.",
+    "exits": ["Matrix - Valley"],
+    "items": ["chalk cliffs", "loose rocks"],
+    "characters": ["Doctor"],
+    "events": ["Doctor is pursued through quarry"],
+    "atmosphere": "dangerous"
   }
 ]
 
-Your task is to analyze the ENTIRE script and identify EVERY distinct LOCATION/ROOM that appears in the story.
+Extract EVERY location from the script. Each distinct area is a separate entry:
+- Physical locations (TARDIS, Panopticon, Chancellery, Museum, etc.)
+- Virtual/Matrix locations - each distinct setting is its own room (Quarry, Battlefield, Pool, Marsh, etc.)
+- Sub-areas within larger spaces (Panopticon vs Panopticon Gallery vs Panopticon Vault)
 
-For each unique location, extract:
-1. **name**: Clear, concise location name (e.g., "TARDIS Console Room", "Panopticon", "Matrix - Quarry")
-2. **description**: Vivid description combining ALL mentions of this location throughout the script (3-5 sentences)
-3. **exits**: Array of named connections to other rooms mentioned in the script
-4. **items**: All notable objects, props, or features mentioned across all scenes in this location
-5. **characters**: All characters who appear in this location throughout the story
-6. **events**: Key plot events that occur here (chronological order if possible)
-7. **atmosphere**: Overall mood/tone (e.g., "tense", "mysterious", "formal")
+For each location provide: name, description (3-5 sentences), exits, items, characters, events, atmosphere.
 
-CRITICAL RULES:
-- Include ALL locations: real, virtual, dream sequences, Matrix simulations, visions, etc.
-- Each distinct playable area is a separate room (e.g., "Cliff Face", "Valley", "Pool" are different from "Matrix")
-- If a location appears multiple times with ONLY capitalization differences (e.g., "Tardis" vs "TARDIS"), consolidate them
-- BUT locations that are actually DIFFERENT (e.g., "Panopticon" vs "Panopticon Gallery") should be SEPARATE entries
-- Virtual/dream/Matrix locations are REAL game locations - include them all!
-- Sub-locations within larger areas (like different parts of the Matrix) should be separate rooms
+Output ONLY the JSON array. Start with [ and end with ]."""
 
-EXAMPLES:
-- "TARDIS Console Room" and "Tardis console room" → ONE entry
-- "Matrix - Quarry" and "Matrix - Battlefield" → TWO entries (different locations in the Matrix)
-- "Panopticon" and "Panopticon Gallery" → TWO entries (different rooms)
+        user_prompt = f"""Extract all locations from this script as a JSON array.
 
-OUTPUT FORMAT - CRITICAL:
-You MUST output ONLY a raw JSON array. Your entire response must be valid JSON that starts with [ and ends with ].
-DO NOT write any markdown, explanations, comments, or code blocks.
-DO NOT use ```json or ``` markers.
-DO NOT write "Here is the JSON" or any other text.
-Your response must be ONLY the JSON array, nothing else."""
+Remember:
+- Each physical location is a separate entry (TARDIS, Panopticon, Chancellery, Records Room, Museum, etc.)
+- Panopticon, Panopticon Gallery, and Panopticon Vault are THREE separate rooms
+- Each Matrix environment is a separate entry (Matrix - Quarry, Matrix - Battlefield, Matrix - Pool, etc.)
+- Look for the actual setting in Matrix scenes (quarry, marsh, railway, etc.) and create separate rooms for each
 
-        user_prompt = f"""Analyze this complete Doctor Who script and extract ALL unique locations/rooms as a JSON array.
-
-IMPORTANT: Include EVERY location in the script as SEPARATE entries:
-
-Physical locations:
-- TARDIS Console Room
-- Panopticon
-- Panopticon Gallery (separate from Panopticon!)
-- Panopticon Vault (separate from Panopticon!)
-- Chancellery
-- Records Room
-- Museum
-- etc.
-
-Matrix/Virtual locations (these are SEPARATE rooms even though they're all "in the Matrix"):
-- Matrix - Operating Theatre
-- Matrix - Betchworth Quarry
-- Matrix - World War One Battlefield
-- Matrix - Railway Junction
-- Matrix - Cliff Face
-- Matrix - Valley
-- Matrix - Reed Thicket
-- Matrix - Pool
-- Matrix - Marsh
-- etc.
-
-If the scene description says [Matrix] or similar, look at the ACTUAL setting described (quarry, battlefield, pool, etc.) and create a separate room for each one.
-
-Only consolidate entries that are literally the same place with different capitalization (e.g., "Tardis" vs "TARDIS").
-
----
+SCRIPT:
 {text}
----
 
-Output the JSON array now. Start your response with [ and end with ]. Do not write anything except the JSON array:"""
+JSON array:"""
 
         print(f"🤖 Processing entire transcript with full context...")
         print(f"   Using streaming mode for large model...\n")
@@ -205,6 +251,19 @@ Output the JSON array now. Start your response with [ and end with ]. Do not wri
             print(f"\n   Generated ~{token_count} tokens\n")
             response_text = response_text.strip()
 
+            # Debug mode: save response for troubleshooting
+            if os.getenv('DEBUG_MODE', 'false').lower() == 'true':
+                debug_dir = Path('debug_responses')
+                debug_dir.mkdir(exist_ok=True)
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                debug_file = debug_dir / f'response_{timestamp}.txt'
+                debug_file.write_text(
+                    f"SYSTEM PROMPT:\n{system_prompt}\n\n"
+                    f"USER PROMPT (first 1000 chars):\n{user_prompt[:1000]}...\n\n"
+                    f"RESPONSE:\n{response_text}"
+                )
+                print(f"🐛 Debug response saved to {debug_file}")
+
             # Extract JSON from response
             if "```json" in response_text:
                 response_text = response_text.split("```json")[1].split("```")[0].strip()
@@ -223,32 +282,21 @@ Output the JSON array now. Start your response with [ and end with ]. Do not wri
 
         except json.JSONDecodeError as e:
             print(f"⚠️  JSON parsing error: {e}")
-            print(f"\n📝 FULL RESPONSE FROM MODEL:")
-            print("="*60)
-            print(response_text)
-            print("="*60)
+            print(f"\n💡 Attempting robust extraction...")
 
-            # Try to salvage partial JSON
-            print(f"\n💡 Attempting to extract partial results...")
-            try:
-                # Find the start of the array
-                start = response_text.find('[')
-                if start >= 0:
-                    # Try to find matching close bracket
-                    depth = 0
-                    for i in range(start, len(response_text)):
-                        if response_text[i] == '[':
-                            depth += 1
-                        elif response_text[i] == ']':
-                            depth -= 1
-                            if depth == 0:
-                                partial = response_text[start:i+1]
-                                rooms = json.loads(partial)
-                                print(f"✅ Recovered {len(rooms)} rooms from partial JSON")
-                                return rooms
-            except:
-                pass
+            rooms = self.extract_json_from_response(response_text)
+            if rooms:
+                print(f"✅ Recovered {len(rooms)} rooms using fallback parser")
+                deduped = self.deduplicate_rooms(rooms)
+                if len(deduped) < len(rooms):
+                    print(f"🔄 Removed {len(rooms) - len(deduped)} duplicate entries")
+                return deduped
 
+            # If all strategies failed, show the response for debugging
+            print(f"\n📝 Could not parse response. First 500 chars:")
+            print("="*60)
+            print(response_text[:500])
+            print("="*60)
             return []
 
         except Exception as e:
@@ -319,37 +367,99 @@ Output the JSON array now. Start your response with [ and end with ]. Do not wri
         return result
 
 
+def get_llm_config(use_remote: bool) -> tuple:
+    """Get LLM configuration based on remote/local flag.
+
+    Returns:
+        tuple: (api_base, api_key, model, mode_name)
+    """
+    if use_remote:
+        api_base = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+        api_key = os.getenv("OPENAI_API_KEY")
+        model = os.getenv("OPENAI_MODEL", "gpt-4o")
+
+        if not api_key or api_key == "sk-your-key-here":
+            print("❌ Error: OPENAI_API_KEY not set in .env file")
+            print("   Get your API key from: https://platform.openai.com/api-keys")
+            sys.exit(1)
+
+        return api_base, api_key, model, "remote (OpenAI)"
+    else:
+        api_base = os.getenv("LLM_BASE_URL") or os.getenv("LLM_API_BASE", "http://localhost:8000/v1")
+        api_key = os.getenv("LLM_API_KEY", "lm-studio")
+        model = os.getenv("LLM_MODEL", "local-model")
+        return api_base, api_key, model, "local"
+
+
 def main():
     """Main entry point"""
 
-    if len(sys.argv) < 2:
-        print("Usage: python process_transcript_full.py <pdf_file> [output.json]")
-        print("\nThis version uses FULL CONTEXT (no chunking) for better results!")
-        print("Requires a model with large context window (32K+ recommended)")
-        print("\nEnvironment variables:")
-        print(f"  LLM_BASE_URL: {LLM_API_BASE}")
-        print(f"  LLM_MODEL: {LLM_MODEL}")
-        print(f"  MAX_TOKENS: {MAX_TOKENS}")
-        print(f"  TEMPERATURE: {TEMPERATURE}")
+    parser = argparse.ArgumentParser(
+        description="Convert fiction transcripts to interactive fiction game data using LLM",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python process_transcript_full.py transcript.pdf           # Use local LLM (default)
+  python process_transcript_full.py --remote transcript.pdf  # Use OpenAI API
+  python process_transcript_full.py -r transcript.pdf out.json
+
+Environment variables:
+  Local LLM:  LLM_BASE_URL, LLM_MODEL, LLM_API_KEY
+  OpenAI:     OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL
+  Shared:     MAX_TOKENS, TEMPERATURE
+"""
+    )
+
+    # LLM selection (mutually exclusive)
+    llm_group = parser.add_mutually_exclusive_group()
+    llm_group.add_argument(
+        "-r", "--remote",
+        action="store_true",
+        help="Use OpenAI API (requires OPENAI_API_KEY in .env)"
+    )
+    llm_group.add_argument(
+        "-l", "--local",
+        action="store_true",
+        help="Use local LLM (default)"
+    )
+
+    # Positional arguments
+    parser.add_argument(
+        "pdf_file",
+        help="Path to the PDF transcript file"
+    )
+    parser.add_argument(
+        "output",
+        nargs="?",
+        help="Output JSON file path (default: <input>_rooms_full.json)"
+    )
+
+    args = parser.parse_args()
+
+    # Validate input file exists
+    if not os.path.exists(args.pdf_file):
+        print(f"❌ Error: File not found: {args.pdf_file}")
         sys.exit(1)
 
-    pdf_path = sys.argv[1]
-    output_path = sys.argv[2] if len(sys.argv) > 2 else None
+    # Get LLM configuration
+    api_base, api_key, model, mode_name = get_llm_config(args.remote)
 
-    if not os.path.exists(pdf_path):
-        print(f"❌ Error: File not found: {pdf_path}")
-        sys.exit(1)
+    print(f"\n🔧 Using {mode_name} LLM")
+    print(f"   API Base: {api_base}")
+    print(f"   Model: {model}")
+    print(f"   Max Tokens: {MAX_TOKENS}")
+    print(f"   Temperature: {TEMPERATURE}")
 
     # Create processor
     processor = FullContextProcessor(
-        api_base=LLM_API_BASE,
-        api_key=LLM_API_KEY,
-        model=LLM_MODEL
+        api_base=api_base,
+        api_key=api_key,
+        model=model
     )
 
     # Process the PDF
     try:
-        result = processor.process_pdf(pdf_path, output_path)
+        result = processor.process_pdf(args.pdf_file, args.output)
 
         if result and result.get('rooms'):
             # Print sample

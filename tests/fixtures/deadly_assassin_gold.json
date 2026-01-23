@@ -1,0 +1,439 @@
+{
+  "title": "The Doctor Who Transcripts - The Deadly Assassin",
+  "format": "interactive_fiction_v1",
+  "source": "doctor_who_transcript",
+  "generated_by": "full_context_processor",
+  "processing_method": "single_pass_full_context",
+  "room_count": 20,
+  "rooms": [
+    {
+      "name": "TARDIS Console Room",
+      "description": "A wooden console room within the TARDIS, featuring a hexagonal console and various compartments. The Doctor experiences a vision here, foreseeing an assassination. The room is equipped with a viewscreen and contains a small writing desk and a Gladstone bag.",
+      "exits": [
+        "Gallifrey - Sector 7"
+      ],
+      "items": [
+        "Console",
+        "Viewscreens",
+        "Writing desk",
+        "Gladstone bag",
+        "Hookah pipe"
+      ],
+      "characters": [
+        "The Doctor"
+      ],
+      "events": [
+        "The Doctor has a vision of the assassination",
+        "The Doctor writes a warning note"
+      ],
+      "atmosphere": "mysterious"
+    },
+    {
+      "name": "Gallifrey - Sector 7",
+      "description": "An area outside the Capitol on Gallifrey, where the TARDIS materializes. It is patrolled by Chancery guards and is the site of an unauthorized capsule entry alert. The Doctor is pursued by guards here.",
+      "exits": [
+        "TARDIS Console Room",
+        "Communications Tower"
+      ],
+      "items": [
+        "Lift"
+      ],
+      "characters": [
+        "The Doctor",
+        "Hildred",
+        "Spandrell",
+        "Guards"
+      ],
+      "events": [
+        "The TARDIS materializes",
+        "The Doctor evades capture"
+      ],
+      "atmosphere": "tense"
+    },
+    {
+      "name": "Records Room",
+      "description": "A room in the Capitol where data on Time Lords and TARDIS capsules is stored and accessed. It features a computer system for data retrieval and a storage area for data tubes.",
+      "exits": [
+        "Chancellery"
+      ],
+      "items": [
+        "Computer",
+        "Data tubes",
+        "Communicator"
+      ],
+      "characters": [
+        "Spandrell",
+        "Engin"
+      ],
+      "events": [
+        "Spandrell investigates the Doctor's TARDIS",
+        "Engin retrieves data on the Doctor"
+      ],
+      "atmosphere": "formal"
+    },
+    {
+      "name": "Chancellery",
+      "description": "The administrative center of the Capitol, where high-ranking Time Lords, including Chancellor Goth, discuss matters of state. It features a fur-covered chair and is a place of political intrigue.",
+      "exits": [
+        "Records Room",
+        "Panopticon"
+      ],
+      "items": [
+        "Fur-covered chair"
+      ],
+      "characters": [
+        "Spandrell",
+        "Goth",
+        "Borusa"
+      ],
+      "events": [
+        "Spandrell discusses the Doctor's warning with Goth"
+      ],
+      "atmosphere": "formal"
+    },
+    {
+      "name": "Panopticon",
+      "description": "The central ceremonial hall of the Time Lords, where the President's resignation ceremony takes place. It is a grand space with high galleries and a circular central dais. The assassination occurs here.",
+      "exits": [
+        "Panopticon Gallery",
+        "Panopticon Antechamber"
+      ],
+      "items": [
+        "Dais",
+        "Rod of Office"
+      ],
+      "characters": [
+        "The Doctor",
+        "Runcible",
+        "Goth",
+        "Borusa",
+        "Time Lords"
+      ],
+      "events": [
+        "The President is assassinated",
+        "The Doctor is captured"
+      ],
+      "atmosphere": "formal"
+    },
+    {
+      "name": "Panopticon Gallery",
+      "description": "A high gallery overlooking the Panopticon, used by the Doctor to observe the ceremony. It is where the assassination weapon is set up.",
+      "exits": [
+        "Panopticon"
+      ],
+      "items": [
+        "Rifle"
+      ],
+      "characters": [
+        "The Doctor",
+        "Hildred"
+      ],
+      "events": [
+        "The Doctor discovers the assassination weapon"
+      ],
+      "atmosphere": "tense"
+    },
+    {
+      "name": "Panopticon Antechamber",
+      "description": "A room adjacent to the Panopticon where the President prepares for the ceremony. It contains ceremonial items and is a place of preparation.",
+      "exits": [
+        "Panopticon"
+      ],
+      "items": [
+        "Resignation honours list",
+        "Rod of Office"
+      ],
+      "characters": [
+        "President",
+        "Gold Usher"
+      ],
+      "events": [
+        "The President prepares for the ceremony"
+      ],
+      "atmosphere": "formal"
+    },
+    {
+      "name": "Museum",
+      "description": "A location within the Capitol where the TARDIS is transducted. It contains displays of Time Lord regalia and is a place of historical significance.",
+      "exits": [
+        "Panopticon"
+      ],
+      "items": [
+        "Time Lord regalia",
+        "Display cases"
+      ],
+      "characters": [
+        "The Doctor"
+      ],
+      "events": [
+        "The Doctor disguises himself in Time Lord robes"
+      ],
+      "atmosphere": "historical"
+    },
+    {
+      "name": "Detention Room",
+      "description": "A secure room where the Doctor is held and interrogated. It features a cage on a pillar and a retractable walkway. The Doctor is tortured here.",
+      "exits": [
+        "Chancellery"
+      ],
+      "items": [
+        "Torture device"
+      ],
+      "characters": [
+        "The Doctor",
+        "Hildred",
+        "Spandrell"
+      ],
+      "events": [
+        "The Doctor is interrogated and tortured"
+      ],
+      "atmosphere": "oppressive"
+    },
+    {
+      "name": "Matrix - Betchworth Quarry",
+      "description": "A virtual location within the Matrix, resembling a quarry with loose chalk and a precipice. The Doctor encounters a Samurai warrior here.",
+      "exits": [
+        "Matrix - Operating Theatre",
+        "Matrix - World War One Battlefield"
+      ],
+      "items": [
+        "Scarf",
+        "Stunted shrub"
+      ],
+      "characters": [
+        "The Doctor",
+        "Samurai warrior"
+      ],
+      "events": [
+        "The Doctor is attacked by a Samurai warrior"
+      ],
+      "atmosphere": "surreal"
+    },
+    {
+      "name": "Matrix - Operating Theatre",
+      "description": "A surreal operating theatre within the Matrix, featuring an oxygen mask and a masked surgeon with a large syringe. The Doctor is threatened with an injection.",
+      "exits": [
+        "Matrix - Betchworth Quarry"
+      ],
+      "items": [
+        "Oxygen mask",
+        "Syringe"
+      ],
+      "characters": [
+        "The Doctor",
+        "Masked surgeon"
+      ],
+      "events": [
+        "The Doctor escapes an injection"
+      ],
+      "atmosphere": "menacing"
+    },
+    {
+      "name": "Matrix - World War One Battlefield",
+      "description": "A virtual battlefield within the Matrix, with explosions and railway tracks. The Doctor is trapped by moving points and narrowly escapes an oncoming train.",
+      "exits": [
+        "Matrix - Railway Junction"
+      ],
+      "items": [
+        "Railway tracks"
+      ],
+      "characters": [
+        "The Doctor"
+      ],
+      "events": [
+        "The Doctor escapes an oncoming train"
+      ],
+      "atmosphere": "chaotic"
+    },
+    {
+      "name": "Matrix - Railway Junction",
+      "description": "An intersection of railway tracks within the Matrix, where the Doctor encounters three concealed train drivers. The Doctor's foot is trapped by moving points.",
+      "exits": [
+        "Matrix - World War One Battlefield"
+      ],
+      "items": [
+        "Railway engines"
+      ],
+      "characters": [
+        "The Doctor"
+      ],
+      "events": [
+        "The Doctor frees his foot from the tracks"
+      ],
+      "atmosphere": "tense"
+    },
+    {
+      "name": "Matrix - Cliff Face",
+      "description": "A cliff face within the Matrix, where the Doctor hides from a hunter. The area is populated by birds and a giant spider.",
+      "exits": [
+        "Matrix - Valley"
+      ],
+      "items": [
+        "Buddleia bush",
+        "Giant spider"
+      ],
+      "characters": [
+        "The Doctor",
+        "Hunter"
+      ],
+      "events": [
+        "The Doctor hides from a hunter"
+      ],
+      "atmosphere": "dangerous"
+    },
+    {
+      "name": "Matrix - Valley",
+      "description": "A valley within the Matrix, where the Doctor encounters a hunter. The area is filled with foliage and is a place of pursuit.",
+      "exits": [
+        "Matrix - Cliff Face",
+        "Matrix - Reed Thicket"
+      ],
+      "items": [
+        "Buddleia bush"
+      ],
+      "characters": [
+        "The Doctor",
+        "Hunter"
+      ],
+      "events": [
+        "The Doctor is pursued by a hunter"
+      ],
+      "atmosphere": "tense"
+    },
+    {
+      "name": "Matrix - Reed Thicket",
+      "description": "A thicket within the Matrix, where the Doctor hides from a hunter. The area is dense with reeds and provides cover.",
+      "exits": [
+        "Matrix - Valley",
+        "Matrix - Pool"
+      ],
+      "items": [
+        "Reeds"
+      ],
+      "characters": [
+        "The Doctor",
+        "Hunter"
+      ],
+      "events": [
+        "The Doctor hides in the thicket"
+      ],
+      "atmosphere": "concealed"
+    },
+    {
+      "name": "Matrix - Pool",
+      "description": "A pool within the Matrix, where the Doctor discovers poisoned water. He uses a reed to drink safely from the margins.",
+      "exits": [
+        "Matrix - Reed Thicket",
+        "Matrix - Marsh"
+      ],
+      "items": [
+        "Reed",
+        "Poisoned water"
+      ],
+      "characters": [
+        "The Doctor",
+        "Hunter"
+      ],
+      "events": [
+        "The Doctor drinks safely from the pool"
+      ],
+      "atmosphere": "deceptive"
+    },
+    {
+      "name": "Matrix - Marsh",
+      "description": "A marshy area within the Matrix, where the Doctor struggles to keep moving. The area is filled with marsh gas and is treacherous.",
+      "exits": [
+        "Matrix - Pool"
+      ],
+      "items": [
+        "Marsh gas"
+      ],
+      "characters": [
+        "The Doctor",
+        "Hunter"
+      ],
+      "events": [
+        "The Doctor navigates the marsh"
+      ],
+      "atmosphere": "treacherous"
+    },
+    {
+      "name": "Adytum",
+      "description": "A secretive location where the decaying figure of the Master resides. It is a place of plotting and control, featuring a couch and a red metal helmet.",
+      "exits": [
+        "Chancellery"
+      ],
+      "items": [
+        "Couch",
+        "Red metal helmet"
+      ],
+      "characters": [
+        "The Master",
+        "Goth"
+      ],
+      "events": [
+        "The Master plots against the Doctor"
+      ],
+      "atmosphere": "sinister"
+    },
+    {
+      "name": "Panopticon Vault",
+      "description": "A vault beneath the Panopticon, containing the bodies of the President and Chancellor Goth. It is a place of death and concealment.",
+      "exits": [
+        "Panopticon"
+      ],
+      "items": [
+        "Biological remains"
+      ],
+      "characters": [
+        "The Master",
+        "Hildred"
+      ],
+      "events": [
+        "The Master revives and escapes"
+      ],
+      "atmosphere": "eerie"
+    }
+  ],
+  "metadata": {
+    "all_characters": [
+      "Borusa",
+      "Engin",
+      "Gold Usher",
+      "Goth",
+      "Guards",
+      "Hildred",
+      "Hunter",
+      "Masked surgeon",
+      "President",
+      "Runcible",
+      "Samurai warrior",
+      "Spandrell",
+      "The Doctor",
+      "The Master",
+      "Time Lords"
+    ],
+    "all_locations": [
+      "TARDIS Console Room",
+      "Gallifrey - Sector 7",
+      "Records Room",
+      "Chancellery",
+      "Panopticon",
+      "Panopticon Gallery",
+      "Panopticon Antechamber",
+      "Museum",
+      "Detention Room",
+      "Matrix - Betchworth Quarry",
+      "Matrix - Operating Theatre",
+      "Matrix - World War One Battlefield",
+      "Matrix - Railway Junction",
+      "Matrix - Cliff Face",
+      "Matrix - Valley",
+      "Matrix - Reed Thicket",
+      "Matrix - Pool",
+      "Matrix - Marsh",
+      "Adytum",
+      "Panopticon Vault"
+    ]
+  }
+}

@@ -28,11 +28,11 @@ jobs:
 
     - name: Run tests
       run: |
-        python -m pytest tests/ -v --tb=short
+        python -m pytest tests/ -v --tb=short -m "not integration"
 
     - name: Run tests with coverage
       run: |
-        python -m pytest tests/ --cov=. --cov-report=term-missing --cov-fail-under=70
+        python -m pytest tests/ --cov=. --cov-report=term-missing --cov-fail-under=80 -m "not integration"
 
   lint:
     runs-on: ubuntu-latest
