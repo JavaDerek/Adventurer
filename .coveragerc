@@ -1,4 +1,6 @@
 [run]
 omit =
+    # CLI utilities that require external services to test fully
     test_connection.py
+    # Integration tests (require real LLM)
     tests/test_integration.py

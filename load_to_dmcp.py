@@ -21,14 +21,177 @@ from pathlib import Path
 from typing import Any
 
 
+async def load_game_with_session(
+    session,
+    game_data: dict,
+    setting: str = "interactive fiction",
+    style: str = "exploration and puzzle-solving"
+) -> dict:
+    """Load game data into DMCP using an existing MCP session.
+
+    This is the core logic, separated for testability.
+    """
+    title = game_data.get("title", "Untitled Adventure")
+    rooms = game_data.get("rooms", [])
+
+    # Create the game
+    print("\nCreating game...")
+    result = await session.call_tool("create_game", {
+        "name": title,
+        "setting": setting,
+        "style": style
+    })
+    game_id = extract_id_from_result(result, "game")
+    print(f"  Game ID: {game_id}")
+
+    # Create all locations first (need IDs for connections)
+    print("\nCreating locations...")
+    location_ids = {}
+    for room in rooms:
+        name = room.get("name", "Unknown Room")
+        description = room.get("description", "")
+        atmosphere = room.get("atmosphere", "")
+
+        # Append atmosphere to description
+        if atmosphere:
+            description = f"{description}\n\nAtmosphere: {atmosphere}"
+
+        result = await session.call_tool("create_location", {
+            "gameId": game_id,
+            "name": name,
+            "description": description
+        })
+        loc_id = extract_id_from_result(result, "location")
+        location_ids[name] = loc_id
+        print(f"  + {name}")
+
+    # Connect locations based on exits
+    print("\nConnecting locations...")
+    connections_made = 0
+    for room in rooms:
+        source_name = room.get("name", "")
+        source_id = location_ids.get(source_name)
+        if not source_id:
+            continue
+
+        for exit_name in room.get("exits", []):
+            target_id = location_ids.get(exit_name)
+            if target_id:
+                await session.call_tool("connect_locations", {
+                    "gameId": game_id,
+                    "fromId": source_id,
+                    "toId": target_id
+                })
+                connections_made += 1
+            else:
+                print(f"  Warning: Exit '{exit_name}' not found (from {source_name})")
+    print(f"  {connections_made} connections created")
+
+    # Collect and deduplicate characters
+    print("\nCreating characters...")
+    character_locations = {}  # character_name -> first location
+    for room in rooms:
+        room_name = room.get("name", "")
+        for char in room.get("characters", []):
+            # Normalize character name (remove parentheticals)
+            normalized = normalize_character_name(char)
+            if normalized not in character_locations:
+                character_locations[normalized] = room_name
+
+    character_ids = {}
+    for char_name, first_location in character_locations.items():
+        loc_id = location_ids.get(first_location)
+        result = await session.call_tool("create_character", {
+            "gameId": game_id,
+            "name": char_name,
+            "isPlayer": char_name.lower() == "player",
+            "locationId": loc_id
+        })
+        char_id = extract_id_from_result(result, "character")
+        character_ids[char_name] = char_id
+        print(f"  + {char_name} (at {first_location})")
+
+    # Create items at their locations
+    print("\nCreating items...")
+    items_created = 0
+    for room in rooms:
+        room_name = room.get("name", "")
+        loc_id = location_ids.get(room_name)
+        if not loc_id:
+            continue
+
+        for item_name in room.get("items", []):
+            try:
+                await session.call_tool("create_item", {
+                    "gameId": game_id,
+                    "name": item_name,
+                    "description": f"Found in {room_name}",
+                    "locationId": loc_id
+                })
+                items_created += 1
+            except Exception as e:
+                print(f"  Warning: Could not create item '{item_name}': {e}")
+    print(f"  {items_created} items created")
+
+    # Add events as narrative context
+    print("\nAdding events...")
+    events_added = 0
+    for room in rooms:
+        room_name = room.get("name", "")
+        loc_id = location_ids.get(room_name)
+
+        for event in room.get("events", []):
+            try:
+                await session.call_tool("add_event", {
+                    "gameId": game_id,
+                    "description": f"[{room_name}] {event}",
+                    "locationId": loc_id
+                })
+                events_added += 1
+            except Exception as e:
+                # add_event might have different signature, try without locationId
+                try:
+                    await session.call_tool("add_event", {
+                        "gameId": game_id,
+                        "description": f"[{room_name}] {event}"
+                    })
+                    events_added += 1
+                except Exception:
+                    pass  # Skip if events aren't supported this way
+    print(f"  {events_added} events added")
+
+    # Summary
+    print("\n" + "=" * 50)
+    print("LOAD COMPLETE")
+    print("=" * 50)
+    print(f"Game ID: {game_id}")
+    print(f"Title: {title}")
+    print(f"Locations: {len(location_ids)}")
+    print(f"Characters: {len(character_ids)}")
+    print(f"Items: {items_created}")
+    print(f"Events: {events_added}")
+    print(f"\nTo play: Configure Claude Desktop with DMCP, then use load_game with ID: {game_id}")
+
+    return {
+        "game_id": game_id,
+        "title": title,
+        "location_ids": location_ids,
+        "character_ids": character_ids,
+        "items_created": items_created,
+        "events_added": events_added
+    }
+
+
 async def load_game_to_dmcp(
     json_path: str,
     dmcp_path: str,
     setting: str = "interactive fiction",
     style: str = "exploration and puzzle-solving"
 ) -> dict:
-    """Load an Adventurer JSON file into DMCP."""
+    """Load an Adventurer JSON file into DMCP.
 
+    This is the entry point that handles MCP connection setup.
+    """
     # Import MCP SDK
     try:
         from mcp import ClientSession, StdioServerParameters
@@ -47,11 +210,8 @@ async def load_game_to_dmcp(
     with open(json_path, "r") as f:
         game_data = json.load(f)
 
-    title = game_data.get("title", "Untitled Adventure")
-    rooms = game_data.get("rooms", [])
-
-    print(f"Loading: {title}")
-    print(f"Rooms: {len(rooms)}")
+    print(f"Loading: {game_data.get('title', 'Untitled')}")
+    print(f"Rooms: {len(game_data.get('rooms', []))}")
 
     # Resolve DMCP path
     dmcp_index = Path(dmcp_path).expanduser() / "dist" / "index.js"
@@ -70,153 +230,7 @@ async def load_game_to_dmcp(
     async with stdio_client(server_params) as (read_stream, write_stream):
         async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
-
-            # Create the game
-            print("\nCreating game...")
-            result = await session.call_tool("create_game", {
-                "name": title,
-                "setting": setting,
-                "style": style
-            })
-            game_id = extract_id_from_result(result, "game")
-            print(f"  Game ID: {game_id}")
-
-            # Create all locations first (need IDs for connections)
-            print("\nCreating locations...")
-            location_ids = {}
-            for room in rooms:
-                name = room.get("name", "Unknown Room")
-                description = room.get("description", "")
-                atmosphere = room.get("atmosphere", "")
-
-                # Append atmosphere to description
-                if atmosphere:
-                    description = f"{description}\n\nAtmosphere: {atmosphere}"
-
-                result = await session.call_tool("create_location", {
-                    "gameId": game_id,
-                    "name": name,
-                    "description": description
-                })
-                loc_id = extract_id_from_result(result, "location")
-                location_ids[name] = loc_id
-                print(f"  + {name}")
-
-            # Connect locations based on exits
-            print("\nConnecting locations...")
-            connections_made = 0
-            for room in rooms:
-                source_name = room.get("name", "")
-                source_id = location_ids.get(source_name)
-                if not source_id:
-                    continue
-
-                for exit_name in room.get("exits", []):
-                    target_id = location_ids.get(exit_name)
-                    if target_id:
-                        await session.call_tool("connect_locations", {
-                            "gameId": game_id,
-                            "fromId": source_id,
-                            "toId": target_id
-                        })
-                        connections_made += 1
-                    else:
-                        print(f"  Warning: Exit '{exit_name}' not found (from {source_name})")
-            print(f"  {connections_made} connections created")
-
-            # Collect and deduplicate characters
-            print("\nCreating characters...")
-            character_locations = {}  # character_name -> first location
-            for room in rooms:
-                room_name = room.get("name", "")
-                for char in room.get("characters", []):
-                    # Normalize character name (remove parentheticals)
-                    normalized = normalize_character_name(char)
-                    if normalized not in character_locations:
-                        character_locations[normalized] = room_name
-
-            character_ids = {}
-            for char_name, first_location in character_locations.items():
-                loc_id = location_ids.get(first_location)
-                result = await session.call_tool("create_character", {
-                    "gameId": game_id,
-                    "name": char_name,
-                    "isPlayer": char_name.lower() == "player",
-                    "locationId": loc_id
-                })
-                char_id = extract_id_from_result(result, "character")
-                character_ids[char_name] = char_id
-                print(f"  + {char_name} (at {first_location})")
-
-            # Create items at their locations
-            print("\nCreating items...")
-            items_created = 0
-            for room in rooms:
-                room_name = room.get("name", "")
-                loc_id = location_ids.get(room_name)
-                if not loc_id:
-                    continue
-
-                for item_name in room.get("items", []):
-                    try:
-                        await session.call_tool("create_item", {
-                            "gameId": game_id,
-                            "name": item_name,
-                            "description": f"Found in {room_name}",
-                            "locationId": loc_id
-                        })
-                        items_created += 1
-                    except Exception as e:
-                        print(f"  Warning: Could not create item '{item_name}': {e}")
-            print(f"  {items_created} items created")
-
-            # Add events as narrative context
-            print("\nAdding events...")
-            events_added = 0
-            for room in rooms:
-                room_name = room.get("name", "")
-                loc_id = location_ids.get(room_name)
-
-                for event in room.get("events", []):
-                    try:
-                        await session.call_tool("add_event", {
-                            "gameId": game_id,
-                            "description": f"[{room_name}] {event}",
-                            "locationId": loc_id
-                        })
-                        events_added += 1
-                    except Exception as e:
-                        # add_event might have different signature, try without locationId
-                        try:
-                            await session.call_tool("add_event", {
-                                "gameId": game_id,
-                                "description": f"[{room_name}] {event}"
-                            })
-                            events_added += 1
-                        except Exception:
-                            pass  # Skip if events aren't supported this way
-            print(f"  {events_added} events added")
-
-            # Summary
-            print("\n" + "=" * 50)
-            print("LOAD COMPLETE")
-            print("=" * 50)
-            print(f"Game ID: {game_id}")
-            print(f"Title: {title}")
-            print(f"Locations: {len(location_ids)}")
-            print(f"Characters: {len(character_ids)}")
-            print(f"Items: {items_created}")
-            print(f"Events: {events_added}")
-            print(f"\nTo play: Configure Claude Desktop with DMCP, then use load_game with ID: {game_id}")
-
-            return {
-                "game_id": game_id,
-                "title": title,
-                "location_ids": location_ids,
-                "character_ids": character_ids,
-                "items_created": items_created,
-                "events_added": events_added
-            }
+            return await load_game_with_session(session, game_data, setting, style)
 
 
 def extract_id_from_result(result: Any, entity_type: str) -> str:
