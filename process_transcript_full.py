@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
-Doctor Who Transcript to Interactive Fiction Processor (Full Context Version)
-Uses the full 128K context window to process entire transcripts at once
+Fiction to Interactive Fiction Processor (Full Context Version)
+
+Converts narrative fiction (novels, TV scripts, plays) into structured
+room/location data for interactive fiction games.
+Uses the full 128K context window to process entire documents at once.
 """
 
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 import PyPDF2
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -26,9 +30,14 @@ LLM_MODEL = os.getenv("LLM_MODEL", "local-model")
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "4096"))  # Increased for full document processing
 TEMPERATURE = float(os.getenv("TEMPERATURE", "0.7"))
 
+# Chunking configuration for large documents
+CONTEXT_TOKEN_LIMIT = int(os.getenv("CONTEXT_TOKEN_LIMIT", "200000"))
+CHUNK_OVERLAP_TOKENS = int(os.getenv("CHUNK_OVERLAP_TOKENS", "500"))
+MIN_CHUNK_TOKENS = int(os.getenv("MIN_CHUNK_TOKENS", "10000"))
+
 
 class FullContextProcessor:
-    """Process entire Doctor Who transcripts in one pass with full LLM context"""
+    """Process entire fiction documents (novels, scripts, plays) in one pass with full LLM context"""
 
     def __init__(self, api_base: str, api_key: str, model: str):
         self.client = OpenAI(
@@ -58,6 +67,308 @@ class FullContextProcessor:
         print(f"✅ Extracted {len(full_text):,} characters (~{int(estimated_tokens):,} tokens)")
 
         return full_text
+
+    def estimate_tokens(self, text: str) -> int:
+        """Estimate token count for text.
+
+        Uses character-to-token ratio of ~4 chars per token for English prose.
+        """
+        return len(text) // 4
+
+    def needs_chunking(self, text: str) -> bool:
+        """Check if text exceeds the safe context limit and needs chunking."""
+        estimated_tokens = self.estimate_tokens(text)
+        return estimated_tokens > CONTEXT_TOKEN_LIMIT
+
+    def detect_chapter_markers(self, text: str) -> List[Tuple[int, str]]:
+        """Detect chapter and part markers in text.
+
+        Returns list of (position, marker_text) tuples sorted by position.
+        Handles various formats including PDF page numbers before markers.
+        """
+        markers = []
+
+        # Roman numerals pattern (I through XXXIX)
+        roman = r'[IVX]+'
+        # Written numbers
+        written = r'(?:ONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN|EIGHT|NINE|TEN|' \
+                  r'ELEVEN|TWELVE|THIRTEEN|FOURTEEN|FIFTEEN|SIXTEEN|' \
+                  r'SEVENTEEN|EIGHTEEN|NINETEEN|TWENTY|THIRTY|FORTY|FIFTY)'
+        # Arabic numbers
+        arabic = r'\d{1,3}'
+
+        number = f'(?:{roman}|{written}|{arabic})'
+
+        # Match markers that may be preceded by page numbers (e.g., "6 of 967 PART I")
+        # or at line starts
+        patterns = [
+            # PART markers (with optional page number prefix)
+            rf'(?:^|\n|\d+\s+of\s+\d+\s*)(PART\s+{number})\s*(?:\n|$)',
+            rf'(?:^|\n|\d+\s+of\s+\d+\s*)(Part\s+{number})\s*(?:\n|$)',
+            # CHAPTER markers
+            rf'(?:^|\n|\d+\s+of\s+\d+\s*)(CHAPTER\s+{number})\s*(?:\n|$)',
+            rf'(?:^|\n|\d+\s+of\s+\d+\s*)(Chapter\s+{number})\s*(?:\n|$)',
+            # BOOK markers
+            rf'(?:^|\n|\d+\s+of\s+\d+\s*)(BOOK\s+{number})\s*(?:\n|$)',
+            rf'(?:^|\n|\d+\s+of\s+\d+\s*)(Book\s+{number})\s*(?:\n|$)',
+            # Special sections
+            r'(?:^|\n|\d+\s+of\s+\d+\s*)(EPILOGUE)\s*(?:\n|$)',
+            r'(?:^|\n|\d+\s+of\s+\d+\s*)(Epilogue)\s*(?:\n|$)',
+            r'(?:^|\n|\d+\s+of\s+\d+\s*)(PROLOGUE)\s*(?:\n|$)',
+            r'(?:^|\n|\d+\s+of\s+\d+\s*)(Prologue)\s*(?:\n|$)',
+        ]
+
+        for pattern in patterns:
+            for match in re.finditer(pattern, text, re.MULTILINE | re.IGNORECASE):
+                marker_text = match.group(1).strip()
+                pos = match.start(1)
+                markers.append((pos, marker_text))
+
+        # Remove duplicates and sort by position
+        markers = list(set(markers))
+        markers.sort(key=lambda x: x[0])
+
+        return markers
+
+    def split_at_markers(self, text: str, markers: List[Tuple[int, str]]) -> List[Dict[str, Any]]:
+        """Split text at chapter/part markers."""
+        if not markers:
+            return [{
+                'text': text,
+                'start_marker': None,
+                'chunk_index': 0,
+                'estimated_tokens': self.estimate_tokens(text)
+            }]
+
+        chunks = []
+        positions = [0] if markers[0][0] > 0 else []
+        positions.extend([m[0] for m in markers])
+        positions.append(len(text))
+
+        marker_lookup = {m[0]: m[1] for m in markers}
+
+        for i in range(len(positions) - 1):
+            start_pos = positions[i]
+            end_pos = positions[i + 1]
+            chunk_text = text[start_pos:end_pos]
+
+            chunks.append({
+                'text': chunk_text,
+                'start_marker': marker_lookup.get(start_pos),
+                'chunk_index': i,
+                'estimated_tokens': self.estimate_tokens(chunk_text)
+            })
+
+        # Merge small chunks with previous
+        merged = []
+        for chunk in chunks:
+            if (merged and
+                chunk['estimated_tokens'] < MIN_CHUNK_TOKENS and
+                merged[-1]['estimated_tokens'] + chunk['estimated_tokens'] < CONTEXT_TOKEN_LIMIT):
+                merged[-1]['text'] += chunk['text']
+                merged[-1]['estimated_tokens'] += chunk['estimated_tokens']
+            else:
+                merged.append(chunk)
+
+        for i, chunk in enumerate(merged):
+            chunk['chunk_index'] = i
+
+        return merged
+
+    def split_by_tokens(self, text: str, target_tokens: int = None) -> List[Dict[str, Any]]:
+        """Split text by token count when no structural markers exist."""
+        if target_tokens is None:
+            target_tokens = CONTEXT_TOKEN_LIMIT - 10000
+
+        target_chars = target_tokens * 4
+        overlap_chars = CHUNK_OVERLAP_TOKENS * 4
+
+        chunks = []
+        current_pos = 0
+        chunk_index = 0
+
+        while current_pos < len(text):
+            end_pos = min(current_pos + target_chars, len(text))
+
+            if end_pos < len(text):
+                # Try to find paragraph break near target
+                search_start = max(end_pos - 2000, current_pos)
+                search_text = text[search_start:end_pos]
+
+                para_break = search_text.rfind('\n\n')
+                if para_break > 0:
+                    end_pos = search_start + para_break + 2
+                else:
+                    # Fall back to sentence boundary
+                    sentence_breaks = list(re.finditer(r'\.\s', search_text))
+                    if sentence_breaks:
+                        end_pos = search_start + sentence_breaks[-1].end()
+                    else:
+                        space_pos = search_text.rfind(' ')
+                        if space_pos > 0:
+                            end_pos = search_start + space_pos + 1
+
+            chunk_text = text[current_pos:end_pos]
+
+            chunks.append({
+                'text': chunk_text,
+                'start_marker': f'[Token chunk {chunk_index + 1}]',
+                'chunk_index': chunk_index,
+                'estimated_tokens': self.estimate_tokens(chunk_text)
+            })
+
+            chunk_index += 1
+
+            # If we've reached the end, stop (don't create overlap chunks)
+            if end_pos >= len(text):
+                break
+
+            # Move forward, applying overlap for context continuity
+            current_pos = end_pos - overlap_chars
+
+        return chunks
+
+    def smart_split(self, text: str) -> List[Dict[str, Any]]:
+        """Intelligently split text using best available strategy."""
+        markers = self.detect_chapter_markers(text)
+
+        if markers:
+            print(f"   Found {len(markers)} chapter/part markers")
+            chunks = self.split_at_markers(text, markers)
+
+            # Check for oversized chunks
+            oversized = [c for c in chunks if c['estimated_tokens'] > CONTEXT_TOKEN_LIMIT]
+
+            if oversized:
+                print(f"   Warning: {len(oversized)} chunks exceed limit, sub-splitting...")
+                final_chunks = []
+                for chunk in chunks:
+                    if chunk['estimated_tokens'] > CONTEXT_TOKEN_LIMIT:
+                        sub_chunks = self.split_by_tokens(chunk['text'])
+                        for j, sub in enumerate(sub_chunks):
+                            sub['start_marker'] = f"{chunk['start_marker']} (part {j+1})"
+                        final_chunks.extend(sub_chunks)
+                    else:
+                        final_chunks.append(chunk)
+
+                for i, chunk in enumerate(final_chunks):
+                    chunk['chunk_index'] = i
+
+                return final_chunks
+
+            return chunks
+        else:
+            print(f"   No chapter markers found, using token-based splitting")
+            return self.split_by_tokens(text)
+
+    def extract_rooms_from_chunk(self, chunk: Dict[str, Any], chunk_context: str = "") -> List[Dict[str, Any]]:
+        """Extract rooms from a single chunk."""
+        system_prompt = """Extract all distinct locations from this fiction excerpt and return them as a JSON array.
+
+This is a CHUNK of a larger work. Some locations may have appeared in earlier chunks -
+include them if they appear here. Deduplication happens later.
+
+Focus only on locations that appear in THIS excerpt.
+
+For each location provide: name, description (3-5 sentences), exits, items, characters, events, atmosphere.
+
+Output ONLY the JSON array. Start with [ and end with ]."""
+
+        chunk_info = ""
+        if chunk.get('start_marker'):
+            chunk_info = f"\n\nThis excerpt begins at: {chunk['start_marker']}"
+
+        if chunk_context:
+            chunk_info += f"\n\nContext from earlier sections: {chunk_context}"
+
+        user_prompt = f"""Extract all locations from this fiction excerpt as a JSON array.
+{chunk_info}
+
+FICTION TEXT:
+{chunk['text']}
+
+JSON array:"""
+
+        marker_display = chunk.get('start_marker', 'Start')
+        if len(str(marker_display)) > 30:
+            marker_display = str(marker_display)[:30] + "..."
+        print(f"      {marker_display} (~{chunk['estimated_tokens']:,} tokens)...", end="", flush=True)
+
+        try:
+            use_new_param = any(x in self.model.lower() for x in ['gpt-5', 'o1', 'o3', 'o4'])
+            token_param = {"max_completion_tokens": MAX_TOKENS} if use_new_param else {"max_tokens": MAX_TOKENS}
+
+            stream = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=TEMPERATURE,
+                **token_param,
+                stream=True
+            )
+
+            response_text = ""
+            token_count = 0
+            for chunk_resp in stream:
+                if chunk_resp.choices[0].delta.content:
+                    response_text += chunk_resp.choices[0].delta.content
+                    token_count += 1
+
+            print(f" done ({token_count} tokens)")
+            response_text = response_text.strip()
+
+            # Parse JSON
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].split("```")[0].strip()
+
+            try:
+                rooms = json.loads(response_text)
+            except json.JSONDecodeError:
+                rooms = self.extract_json_from_response(response_text)
+
+            return rooms if isinstance(rooms, list) else []
+
+        except Exception as e:
+            print(f" error: {e}")
+            return []
+
+    def process_chunked(self, text: str) -> List[Dict[str, Any]]:
+        """Process a large document using chunking strategy."""
+        print(f"\n📚 Document exceeds single-pass limit, using chunked processing...")
+
+        chunks = self.smart_split(text)
+        print(f"   Split into {len(chunks)} chunks\n")
+
+        all_rooms = []
+        room_names_seen = set()
+
+        for i, chunk in enumerate(chunks):
+            print(f"📖 Chunk {i + 1}/{len(chunks)}:")
+
+            context = ""
+            if room_names_seen:
+                recent_rooms = list(room_names_seen)[-20:]
+                context = f"Locations seen earlier: {', '.join(recent_rooms)}"
+
+            rooms = self.extract_rooms_from_chunk(chunk, context)
+
+            if rooms:
+                print(f"      Found {len(rooms)} rooms")
+                all_rooms.extend(rooms)
+                for room in rooms:
+                    room_names_seen.add(room.get('name', ''))
+            else:
+                print(f"      Warning: No rooms extracted")
+
+        print(f"\n🔄 Merging {len(all_rooms)} rooms from all chunks...")
+        deduped = self.deduplicate_rooms(all_rooms)
+        print(f"✅ Final room count after deduplication: {len(deduped)}")
+
+        return deduped
 
     def deduplicate_rooms(self, rooms: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Remove duplicate rooms and merge their information"""
@@ -167,54 +478,70 @@ class FullContextProcessor:
     def extract_all_rooms(self, text: str) -> List[Dict[str, Any]]:
         """Use LLM with full context to extract all rooms at once"""
 
-        system_prompt = """Extract all distinct locations from a dramatic script and return them as a JSON array.
+        system_prompt = """Extract all distinct locations from this fiction work and return them as a JSON array.
 
-EXAMPLE INPUT:
-[Scene: The TARDIS materializes in the Panopticon]
-DOCTOR: Where are we?
-RUNCIBLE: This is the Panopticon, the great hall of Time Lords.
-[The Doctor runs through the Matrix, finding himself in a quarry]
+This tool works with multiple formats:
+- TV/Film SCRIPTS: Look for [Scene: location] markers, stage directions, and CHARACTER: dialogue
+- NOVELS: Extract locations from narrative prose - where characters go, rooms described, settings mentioned
+- PLAYS: Look for Act/Scene headers and stage directions
 
-EXAMPLE OUTPUT:
+EXAMPLE 1 - TV SCRIPT FORMAT:
+[Scene: A grand ceremonial hall]
+JOHN: Where are we?
+MARY: This is the Great Hall, where the council meets.
+[John walks through a doorway into a dusty library]
+
+EXAMPLE 2 - NOVEL FORMAT:
+He climbed the stairs to the fourth floor of a grimy tenement building. The room was tiny,
+more like a cupboard than proper lodgings. A tattered sofa served as his bed, and a small
+table held his few books. Through the thin walls he could hear the neighbors arguing.
+
+EXAMPLE OUTPUT (same JSON format for both):
 [
   {
-    "name": "Panopticon",
-    "description": "The great ceremonial hall where Time Lords gather for important ceremonies and political events.",
-    "exits": ["Panopticon Gallery", "Chancellery"],
-    "items": ["ceremonial dais", "viewing galleries"],
-    "characters": ["Doctor", "Runcible"],
-    "events": ["TARDIS materializes", "ceremony begins"],
+    "name": "Great Hall",
+    "description": "A grand ceremonial hall where the council holds important meetings. The space is large and imposing, designed to impress visitors.",
+    "exits": ["Library", "Main Entrance"],
+    "items": ["council table", "ceremonial banners"],
+    "characters": ["John", "Mary"],
+    "events": ["Characters arrive and discuss the location"],
     "atmosphere": "formal"
   },
   {
-    "name": "Matrix - Quarry",
-    "description": "A virtual quarry environment within the Matrix, with steep chalk cliffs and loose rocks.",
-    "exits": ["Matrix - Valley"],
-    "items": ["chalk cliffs", "loose rocks"],
-    "characters": ["Doctor"],
-    "events": ["Doctor is pursued through quarry"],
-    "atmosphere": "dangerous"
+    "name": "Raskolnikov's Garret",
+    "description": "A tiny room on the fourth floor of a grimy tenement, more like a cupboard than proper lodgings. A tattered sofa serves as a bed and a small table holds a few books. The thin walls let sounds from neighbors filter through.",
+    "exits": ["Stairway", "Hallway"],
+    "items": ["tattered sofa", "small table", "books"],
+    "characters": ["Raskolnikov"],
+    "events": ["Character contemplates his situation"],
+    "atmosphere": "cramped"
   }
 ]
 
-Extract EVERY location from the script. Each distinct area is a separate entry:
-- Physical locations (TARDIS, Panopticon, Chancellery, Museum, etc.)
-- Virtual/Matrix locations - each distinct setting is its own room (Quarry, Battlefield, Pool, Marsh, etc.)
-- Sub-areas within larger spaces (Panopticon vs Panopticon Gallery vs Panopticon Vault)
+EXTRACTION GUIDELINES:
+- Every distinct physical location becomes a separate entry
+- Sub-areas within larger spaces are separate rooms (e.g., "Tavern" vs "Tavern - Back Room")
+- For novels: infer locations from narrative descriptions (no [Scene:] markers exist)
+- Dream sequences, flashbacks, or fantasy locations each get their own entries
+- Streets, outdoor areas, and transitional spaces are valid locations
+- When a building has multiple significant rooms, create separate entries for each
 
 For each location provide: name, description (3-5 sentences), exits, items, characters, events, atmosphere.
 
 Output ONLY the JSON array. Start with [ and end with ]."""
 
-        user_prompt = f"""Extract all locations from this script as a JSON array.
+        user_prompt = f"""Extract all locations from this fiction work as a JSON array.
 
-Remember:
-- Each physical location is a separate entry (TARDIS, Panopticon, Chancellery, Records Room, Museum, etc.)
-- Panopticon, Panopticon Gallery, and Panopticon Vault are THREE separate rooms
-- Each Matrix environment is a separate entry (Matrix - Quarry, Matrix - Battlefield, Matrix - Pool, etc.)
-- Look for the actual setting in Matrix scenes (quarry, marsh, railway, etc.) and create separate rooms for each
+IMPORTANT GUIDELINES:
+- Each distinct physical location is a separate entry
+- Sub-areas within buildings get their own entries (e.g., "Tavern" and "Tavern - Private Room" are separate)
+- For TV/film scripts: Look for [Scene: X] markers and stage directions
+- For novels: Infer locations from narrative prose - where characters go, what rooms are described
+- For dreams, visions, or alternate realities: Create separate entries with clear naming
+- Streets, bridges, outdoor spaces, and transitional areas are valid locations
+- Give rooms descriptive names with context (e.g., "Raskolnikov's Garret" not just "Room")
 
-SCRIPT:
+FICTION TEXT:
 {text}
 
 JSON array:"""
@@ -315,7 +642,7 @@ JSON array:"""
         return {
             "title": title,
             "format": "interactive_fiction_v1",
-            "source": "doctor_who_transcript",
+            "source": "fiction",
             "generated_by": "full_context_processor",
             "processing_method": "single_pass_full_context",
             "room_count": len(rooms),
@@ -331,17 +658,25 @@ JSON array:"""
         }
 
     def process_pdf(self, pdf_path: str, output_path: str = None) -> Dict[str, Any]:
-        """Main processing pipeline"""
+        """Main processing pipeline - handles both small and large documents."""
 
         print(f"\n{'='*60}")
-        print(f"🎬 Processing (Full Context): {pdf_path}")
+        print(f"🎬 Processing: {pdf_path}")
         print(f"{'='*60}\n")
 
         # Extract text
         text = self.extract_text_from_pdf(pdf_path)
 
-        # Process entire document at once
-        rooms = self.extract_all_rooms(text)
+        # Check if chunking is needed
+        if self.needs_chunking(text):
+            estimated = self.estimate_tokens(text)
+            print(f"\n⚠️  Document size (~{estimated:,} tokens) exceeds limit ({CONTEXT_TOKEN_LIMIT:,})")
+            rooms = self.process_chunked(text)
+            processing_method = "chunked"
+        else:
+            print(f"\n✅ Document fits in context window, using single-pass processing")
+            rooms = self.extract_all_rooms(text)
+            processing_method = "single_pass"
 
         if not rooms:
             print(f"\n⚠️  No rooms were extracted!")
@@ -352,6 +687,7 @@ JSON array:"""
         # Add metadata
         title = Path(pdf_path).stem
         result = self.enhance_with_metadata(rooms, title)
+        result['processing_method'] = processing_method
 
         # Save output
         if output_path is None:
@@ -365,7 +701,10 @@ JSON array:"""
         print(f"{'='*60}")
         print(f"📊 Total unique rooms: {len(rooms)}")
         print(f"💾 Saved to: {output_path}")
-        print(f"🔥 Processed with FULL CONTEXT (no chunking!)")
+        if processing_method == "chunked":
+            print(f"📚 Processed with CHUNKING (large document)")
+        else:
+            print(f"🔥 Processed with FULL CONTEXT (single pass)")
         print(f"{'='*60}\n")
 
         return result

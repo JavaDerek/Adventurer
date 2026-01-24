@@ -1,5 +1,5 @@
 """
-Unit tests for the Doctor Who transcript processor.
+Unit tests for the fiction-to-interactive-fiction processor.
 Uses mocks to avoid actual LLM calls.
 """
 
@@ -109,7 +109,7 @@ class TestEnhanceWithMetadata:
 
         assert result["title"] == "Test Episode"
         assert result["format"] == "interactive_fiction_v1"
-        assert result["source"] == "doctor_who_transcript"
+        assert result["source"] == "fiction"
         assert result["room_count"] == 2
         assert result["rooms"] == rooms
 
