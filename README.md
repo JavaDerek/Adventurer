@@ -1,6 +1,6 @@
 # Fiction to Interactive Fiction Converter
 
-[![CI](https://github.com/YOUR_USERNAME/Adventurer/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/Adventurer/actions/workflows/ci.yml)
+[![CI](https://github.com/JavaDerek/Adventurer/actions/workflows/ci.yml/badge.svg)](https://github.com/JavaDerek/Adventurer/actions/workflows/ci.yml)
 
 This tool processes fiction transcripts (novels, TV scripts, plays in PDF format) and uses an LLM to extract structured room/location data for creating interactive fiction games. The complete pipeline takes you from PDF to playable game in Claude Desktop.
 
