@@ -47,6 +47,52 @@ class FullContextProcessor:
         )
         self.model = model
 
+    def clean_pdf_text(self, text: str) -> str:
+        """Clean up common PDF extraction artifacts.
+
+        Some PDFs encode spaces as other characters (like '1') due to font
+        encoding issues. This method detects and fixes common patterns.
+        """
+        # Check if text has suspicious pattern: "1" appearing between letters
+        # Count occurrences of letter-1-letter pattern
+        letter_1_letter = len(re.findall(r'[a-zA-Z]1[a-zA-Z]', text))
+        total_1s = text.count('1')
+
+        # If more than 30% of '1' chars appear between letters, it's likely encoding issue
+        if total_1s > 0 and letter_1_letter / total_1s > 0.3:
+            print(f"   Detected PDF encoding issue (1→space), cleaning...")
+
+            # Replace '1' between letters with space
+            cleaned = re.sub(r'([a-zA-Z])1([a-zA-Z])', r'\1 \2', text)
+            # Need multiple passes for sequences like "word1word1word"
+            while re.search(r'[a-zA-Z]1[a-zA-Z]', cleaned):
+                cleaned = re.sub(r'([a-zA-Z])1([a-zA-Z])', r'\1 \2', cleaned)
+
+            # Replace leading sequences of 1s (indentation) with spaces
+            cleaned = re.sub(r'^1+', lambda m: ' ' * len(m.group()), cleaned, flags=re.MULTILINE)
+
+            # Replace '1' after punctuation followed by letter
+            cleaned = re.sub(r'([.!?,;:])1([a-zA-Z])', r'\1 \2', cleaned)
+
+            # Replace '1' between a letter and punctuation
+            cleaned = re.sub(r'([a-zA-Z])1([.!?,;:\'\"-])', r'\1 \2', cleaned)
+
+            # Replace trailing 1s before newlines (after letters or punctuation)
+            cleaned = re.sub(r'([a-zA-Z.!?,;:\'\"-])1+(\n)', r'\1\2', cleaned)
+
+            # Replace 1s between letter and end of string
+            cleaned = re.sub(r'([a-zA-Z])1+$', r'\1', cleaned, flags=re.MULTILINE)
+
+            # Replace sequences of 1s between words (multi-space cases)
+            cleaned = re.sub(r'([a-zA-Z])1{2,}([a-zA-Z])', r'\1 \2', cleaned)
+
+            # Clean up the * markers around BOOK headers
+            cleaned = re.sub(r'\*\s*1*\s*(BOOK\s+\w+)\s*1*\s*\*', r'\1', cleaned)
+
+            return cleaned
+
+        return text
+
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """Extract text content from PDF file"""
         print(f"📄 Extracting text from {pdf_path}...")
@@ -61,6 +107,9 @@ class FullContextProcessor:
                 print(f"   Extracted page {page_num}/{len(pdf_reader.pages)}")
 
         full_text = "\n\n".join(text_content)
+
+        # Clean up PDF extraction artifacts
+        full_text = self.clean_pdf_text(full_text)
 
         # Estimate tokens
         estimated_tokens = len(full_text) / 4
@@ -85,6 +134,7 @@ class FullContextProcessor:
 
         Returns list of (position, marker_text) tuples sorted by position.
         Handles various formats including PDF page numbers before markers.
+        Filters out table of contents entries by checking for prose after marker.
         """
         markers = []
 
@@ -100,22 +150,23 @@ class FullContextProcessor:
         number = f'(?:{roman}|{written}|{arabic})'
 
         # Match markers that may be preceded by page numbers (e.g., "6 of 967 PART I")
-        # or at line starts
+        # or at line starts (with optional leading whitespace)
+        # Allow trailing artifacts (like 1s from PDF encoding issues)
         patterns = [
-            # PART markers (with optional page number prefix)
-            rf'(?:^|\n|\d+\s+of\s+\d+\s*)(PART\s+{number})\s*(?:\n|$)',
-            rf'(?:^|\n|\d+\s+of\s+\d+\s*)(Part\s+{number})\s*(?:\n|$)',
+            # PART markers (with optional page number prefix or leading whitespace)
+            rf'(?:^|\n)(?:\d+\s+of\s+\d+\s*|\s*)(PART\s+{number})[\s1]*(?:\n|$)',
+            rf'(?:^|\n)(?:\d+\s+of\s+\d+\s*|\s*)(Part\s+{number})[\s1]*(?:\n|$)',
             # CHAPTER markers
-            rf'(?:^|\n|\d+\s+of\s+\d+\s*)(CHAPTER\s+{number})\s*(?:\n|$)',
-            rf'(?:^|\n|\d+\s+of\s+\d+\s*)(Chapter\s+{number})\s*(?:\n|$)',
+            rf'(?:^|\n)(?:\d+\s+of\s+\d+\s*|\s*)(CHAPTER\s+{number})[\s1]*(?:\n|$)',
+            rf'(?:^|\n)(?:\d+\s+of\s+\d+\s*|\s*)(Chapter\s+{number})[\s1]*(?:\n|$)',
             # BOOK markers
-            rf'(?:^|\n|\d+\s+of\s+\d+\s*)(BOOK\s+{number})\s*(?:\n|$)',
-            rf'(?:^|\n|\d+\s+of\s+\d+\s*)(Book\s+{number})\s*(?:\n|$)',
+            rf'(?:^|\n)(?:\d+\s+of\s+\d+\s*|\s*)(BOOK\s+{number})[\s1]*(?:\n|$)',
+            rf'(?:^|\n)(?:\d+\s+of\s+\d+\s*|\s*)(Book\s+{number})[\s1]*(?:\n|$)',
             # Special sections
-            r'(?:^|\n|\d+\s+of\s+\d+\s*)(EPILOGUE)\s*(?:\n|$)',
-            r'(?:^|\n|\d+\s+of\s+\d+\s*)(Epilogue)\s*(?:\n|$)',
-            r'(?:^|\n|\d+\s+of\s+\d+\s*)(PROLOGUE)\s*(?:\n|$)',
-            r'(?:^|\n|\d+\s+of\s+\d+\s*)(Prologue)\s*(?:\n|$)',
+            r'(?:^|\n)(?:\d+\s+of\s+\d+\s*|\s*)(EPILOGUE)[\s1]*(?:\n|$)',
+            r'(?:^|\n)(?:\d+\s+of\s+\d+\s*|\s*)(Epilogue)[\s1]*(?:\n|$)',
+            r'(?:^|\n)(?:\d+\s+of\s+\d+\s*|\s*)(PROLOGUE)[\s1]*(?:\n|$)',
+            r'(?:^|\n)(?:\d+\s+of\s+\d+\s*|\s*)(Prologue)[\s1]*(?:\n|$)',
         ]
 
         for pattern in patterns:
@@ -128,7 +179,27 @@ class FullContextProcessor:
         markers = list(set(markers))
         markers.sort(key=lambda x: x[0])
 
-        return markers
+        # Filter out TOC entries: for each marker type, keep the one followed by prose
+        # (lines > 60 chars within next 1500 chars indicate prose, not TOC)
+        filtered = {}
+        for pos, marker in markers:
+            marker_key = marker.upper()
+            # Check if followed by prose (long lines in first 20 lines)
+            following_text = text[pos:pos + 1500]
+            lines = following_text.split('\n')[1:20]  # Skip first line (marker itself)
+            long_lines = sum(1 for line in lines if len(line.strip()) > 60)
+
+            if marker_key not in filtered:
+                filtered[marker_key] = (pos, marker, long_lines)
+            else:
+                # Keep the one with more prose-like content
+                if long_lines > filtered[marker_key][2]:
+                    filtered[marker_key] = (pos, marker, long_lines)
+
+        result = [(pos, marker) for pos, marker, _ in filtered.values()]
+        result.sort(key=lambda x: x[0])
+
+        return result
 
     def split_at_markers(self, text: str, markers: List[Tuple[int, str]]) -> List[Dict[str, Any]]:
         """Split text at chapter/part markers."""
@@ -224,7 +295,9 @@ class FullContextProcessor:
                 break
 
             # Move forward, applying overlap for context continuity
-            current_pos = end_pos - overlap_chars
+            # Ensure we always make progress (at least 1 char) to prevent infinite loops
+            new_pos = end_pos - overlap_chars
+            current_pos = max(current_pos + 1, new_pos)
 
         return chunks
 

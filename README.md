@@ -2,22 +2,26 @@
 
 [![CI](https://github.com/YOUR_USERNAME/Adventurer/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/Adventurer/actions/workflows/ci.yml)
 
-This tool processes fiction transcripts (in PDF format) and uses an LLM to extract structured room/location data for creating interactive fiction games. Supports both local LLMs and OpenAI API.
+This tool processes fiction transcripts (novels, TV scripts, plays in PDF format) and uses an LLM to extract structured room/location data for creating interactive fiction games. The complete pipeline takes you from PDF to playable game in Claude Desktop.
 
 ## Features
 
-- 📄 Extracts text from PDF transcripts
+- 📄 Extracts text from PDF transcripts with intelligent cleaning (handles encoding issues)
 - 🤖 Supports **local LLMs** (LM Studio, etc.) and **OpenAI API**
+- 📚 Smart chunking for large documents (splits at chapter/part boundaries)
 - 🔄 Streaming support for large models (handles slow generation gracefully)
 - 🏗️ Creates structured JSON with room descriptions, characters, items, and events
 - 🔄 Automatically merges duplicate locations
-- 💾 Outputs ready-to-use game data
+- 🗺️ Map analysis to identify connectivity issues
+- 🔧 LLM-powered map healing to fix broken connections
+- 🎮 Direct loading into DMCP for gameplay in Claude Desktop
 
 ## Requirements
 
 - Python 3.10+
-- A local LLM server (LM Studio, vLLM, text-generation-webui, etc.)
+- A local LLM server (LM Studio, vLLM, text-generation-webui, etc.) OR OpenAI API key
 - Recommended: **Instruct-tuned model** with 32K+ context window
+- For gameplay: [DMCP](https://github.com/shawnrushefsky/dmcp) installed
 
 ## Setup
 
@@ -38,57 +42,138 @@ cp .env.example .env
 Edit `.env` to configure your LLM(s):
 
 ```env
-# Local LLM Configuration (for --local flag, default)
+# Local LLM Configuration (for --local flag)
 LLM_BASE_URL=http://localhost:1234/v1
 LLM_MODEL=qwen2.5-32b-instruct
 LLM_API_KEY=lm-studio
 
-# OpenAI Configuration (for --remote flag)
+# OpenAI Configuration (for --remote flag, default for processing)
 OPENAI_API_KEY=sk-your-key-here
 OPENAI_MODEL=gpt-4o
 OPENAI_BASE_URL=https://api.openai.com/v1
 
 # Generation parameters
-MAX_TOKENS=8000
+MAX_TOKENS=16000
 TEMPERATURE=0.0
+
+# Context window limit for chunking large documents
+# Set lower than model's actual limit to leave room for prompts
+CONTEXT_TOKEN_LIMIT=25000
 ```
 
 ### 3. Recommended Models
 
-For best results, use an **Instruct-tuned** model (not Coder models):
+**For room extraction, OpenAI models are strongly recommended.** Even GPT-5.2 produces exits as descriptive text that requires post-processing with `fix_exits.py`. Local models will likely produce lower quality output requiring more manual cleanup.
 
-| Model | Context | Notes |
-|-------|---------|-------|
-| Qwen2.5-32B-Instruct | 32K | Recommended - excellent JSON extraction |
-| Qwen2.5-14B-Instruct | 32K | Faster, good quality |
-| Mistral-Small-Instruct | 32K | Also works well |
+| Model | Context | Extraction Quality | Notes |
+|-------|---------|-------------------|-------|
+| GPT-5.2 | 128K | Best | Recommended for complex novels |
+| GPT-4o | 128K | Excellent | Good balance of cost/quality |
+| Qwen2.5-32B-Instruct | 32K | Moderate | May work for simple scripts |
+| Qwen2.5-14B-Instruct | 32K | Limited | Short transcripts only |
+
+**Local models** may be adequate for:
+- Short scripts (< 50 rooms)
+- Simple narratives with clear location names
+- Situations where you'll do significant manual editing anyway
 
 **Avoid Coder models** - they tend to generate code instead of JSON data.
 
+## Complete Workflow
+
+The full pipeline from PDF to playable game:
+
+```
+1. PDF Input
+   ↓
+2. process_transcript_full.py  →  rooms_full.json (raw extraction)
+   ↓
+3. fix_exits.py                →  rooms_fixed.json (normalized exits)
+   ↓
+4. load_to_dmcp.py             →  Playable game in Claude Desktop
+```
+
+**Optional**: Run `analyze_map.py` at any stage to inspect connectivity issues.
+
 ## Usage
 
-### Basic Usage (Local LLM)
+### Step 1: Extract Rooms from PDF
 
 ```bash
-python process_transcript_full.py "transcript.pdf"
-```
+# Use OpenAI (recommended for best accuracy)
+python process_transcript_full.py --remote "novel.pdf"
 
-This creates `transcript_rooms_full.json`
+# Use local LLM
+python process_transcript_full.py --local "novel.pdf"
 
-### Use OpenAI API
-
-```bash
-python process_transcript_full.py --remote "transcript.pdf"
-# or
-python process_transcript_full.py -r "transcript.pdf"
-```
-
-### Specify Output File
-
-```bash
-python process_transcript_full.py input.pdf output.json
+# Specify output file
 python process_transcript_full.py --remote input.pdf output.json
 ```
+
+This creates `novel_rooms_full.json` with all extracted locations.
+
+**For large documents** (novels, long scripts), the processor automatically:
+- Detects chapter/part markers
+- Splits the document at natural boundaries
+- Processes each chunk with context from previous chunks
+- Deduplicates and merges the results
+
+### Step 2: Analyze Map Connectivity (Optional)
+
+```bash
+python analyze_map.py rooms_full.json
+```
+
+This identifies:
+- Broken references (exits pointing to non-existent rooms)
+- One-way doors (can go A→B but not B→A)
+- Unreachable rooms
+- Disconnected subgraphs
+
+### Step 3: Fix Exit References
+
+The LLM often extracts exits as descriptive text ("Down toward the river") instead of room names. Fix this with:
+
+```bash
+python fix_exits.py rooms_full.json --connect-subgraphs
+```
+
+Options:
+- `--connect-subgraphs`: Connect isolated room clusters
+- `--min-score 0.7`: Fuzzy match threshold (0-1)
+- `--no-bidirectional`: Don't add reverse connections
+- `-o output.json`: Specify output file
+
+This creates `rooms_full_fixed.json` with valid room connections.
+
+### Step 4: Load into DMCP for Gameplay
+
+```bash
+python load_to_dmcp.py rooms_fixed.json
+```
+
+This loads the game into DMCP and outputs a game ID. In Claude Desktop with DMCP configured:
+
+```
+load_game <game-id>
+```
+
+### Alternative: LLM-Powered Map Healing
+
+For complex connectivity issues, you can use the LLM-powered healer:
+
+```bash
+# Analyze only (no changes)
+python heal_map.py rooms_full.json --analyze-only
+
+# Heal with OpenAI (default)
+python heal_map.py rooms_full.json
+
+# Heal with local LLM
+python heal_map.py --local rooms_full.json
+```
+
+**Note**: For maps with many rooms (100+), `fix_exits.py` is faster and more reliable than `heal_map.py`.
 
 ### Test Your Connection
 
@@ -102,79 +187,63 @@ python test_connection.py --remote
 
 ## Recommended Workflow
 
-For best results, we recommend a **hybrid approach**:
+### Expect Post-Processing
 
-### 1. Use OpenAI (`--remote`) for Room Extraction
+Even with the best models, LLM-extracted room data typically requires cleanup:
+- Exits are often descriptive ("Down toward the river") rather than room names
+- Complex novels may produce hundreds of disconnected room clusters
+- Character and item names may have inconsistencies
 
-Room extraction is a **one-time setup task** that benefits from maximum accuracy. OpenAI's gpt-4o consistently extracts all locations with high-quality descriptions.
+The `fix_exits.py` script handles most of these issues automatically.
+
+### Use OpenAI (`--remote`) for Room Extraction
+
+Room extraction is a **one-time setup task** where quality matters. OpenAI's models produce better structured output that requires less manual cleanup.
 
 ```bash
 python process_transcript_full.py --remote "transcript.pdf"
+python fix_exits.py --connect-subgraphs transcript_rooms_full.json
+python load_to_dmcp.py transcript_rooms_full_fixed.json
 ```
 
-**Cost**: Approximately $0.02-0.05 per transcript (a few cents for a full episode).
+**Cost**: Approximately $0.02-0.10 per transcript depending on length.
 
-### 2. Use Local LLM for Runtime Gameplay
+### Gameplay in Claude Desktop
 
-Once you have structured room data, the **runtime gameplay engine** can use a local LLM for:
-- NPC dialogue generation
-- Dynamic event descriptions
-- Player action interpretation
+Once loaded into DMCP, Claude Desktop handles gameplay - generating NPC dialogue, describing events, and interpreting player actions.
 
-Local models are ideal here because:
-- Responses need to be fast (< 1 second)
-- Tasks are simpler (no complex JSON extraction)
-- Volume is high (many calls per play session)
-
-### Why This Split?
-
-| Task | Best Choice | Reason |
-|------|-------------|--------|
-| Room extraction | OpenAI | One-time, accuracy-critical, complex JSON |
-| Gameplay runtime | Local LLM | Fast, high-volume, simpler prompts |
-
-### Testing Your Local LLM
-
-The gold standard integration test benchmarks your local LLM against OpenAI's output:
-
-```bash
-pytest tests/test_integration.py::TestGoldStandardComparison -v
-```
-
-If your local hardware can match the gold standard (20 rooms for the test transcript), you can use `--local` for everything!
+| Task | Tool | Notes |
+|------|------|-------|
+| Room extraction | OpenAI API | One-time, quality matters |
+| Exit fixing | fix_exits.py | Deterministic, no API cost |
+| Game loading | load_to_dmcp.py | Creates DMCP game entities |
+| Gameplay | Claude Desktop + DMCP | Interactive play |
 
 ## Output Format
 
-The script generates JSON in this format:
+The processor generates JSON in this format:
 
 ```json
 {
-  "title": "The Deadly Assassin",
+  "title": "Crime_and_Punishment",
   "format": "interactive_fiction_v1",
-  "room_count": 18,
+  "source": "fiction",
+  "processing_method": "chunked",
+  "room_count": 90,
   "rooms": [
     {
-      "name": "TARDIS Console Room",
-      "description": "The central control room of the TARDIS with a hexagonal console...",
-      "exits": ["Gallifrey - sector 7"],
-      "items": ["Console", "Viewscreen", "Time Rotor"],
-      "characters": ["The Doctor"],
-      "events": ["Doctor receives vision of the Panopticon"],
-      "atmosphere": "mysterious"
-    },
-    {
-      "name": "Matrix - Cliff Face",
-      "description": "A dangerous cliff within the Matrix simulation...",
-      "exits": ["Matrix - Valley"],
-      "items": ["rope", "rocks"],
-      "characters": ["The Doctor", "Goth"],
-      "events": ["Doctor climbs to escape pursuit"],
-      "atmosphere": "perilous"
+      "name": "Raskolnikov's garret",
+      "description": "A cramped attic room where Raskolnikov has been ill and delirious...",
+      "exits": ["Staircase", "Street outside the lodging house"],
+      "items": ["Parcel of new clothes", "Money", "Table"],
+      "characters": ["Raskolnikov"],
+      "events": ["Raskolnikov leaves his garret, trying to avoid his landlady"],
+      "atmosphere": "Constricted and anxious, marked by secrecy and dread"
     }
   ],
   "metadata": {
-    "all_characters": ["The Doctor", "Spandrell", "Goth"],
-    "all_locations": ["TARDIS Console Room", "Matrix - Cliff Face"]
+    "all_characters": ["Raskolnikov", "Sonia", "Porfiry Petrovitch", "..."],
+    "all_locations": ["Raskolnikov's garret", "Hay Market", "Police station", "..."]
   }
 }
 ```
@@ -200,12 +269,20 @@ python -m pytest tests/ -v -m integration
 ### Project Structure
 
 ```
-├── process_transcript_full.py  # Main processor (full context + streaming)
+├── process_transcript_full.py  # Main PDF→JSON processor
+├── analyze_map.py              # Map connectivity analyzer
+├── fix_exits.py                # Exit text normalizer (fuzzy matching)
+├── heal_map.py                 # LLM-powered map healer
+├── load_to_dmcp.py             # DMCP game loader
 ├── test_connection.py          # LLM connection test utility
 ├── tests/
-│   ├── test_processor.py       # Unit tests (mocked, no LLM calls)
-│   ├── test_integration.py     # Integration tests (real LLM calls)
-│   └── conftest.py             # Pytest configuration
+│   ├── test_processor.py       # Processor unit tests
+│   ├── test_analyzer.py        # Map analyzer tests
+│   ├── test_healer.py          # Map healer tests
+│   ├── test_loader.py          # DMCP loader tests
+│   ├── test_integration.py     # Integration tests (real LLM)
+│   ├── conftest.py             # Pytest configuration
+│   └── fixtures/               # Test fixtures
 ├── .env.example                # Example configuration
 ├── .coveragerc                 # Coverage configuration
 ├── pytest.ini                  # Pytest markers configuration
@@ -218,12 +295,13 @@ python -m pytest tests/ -v -m integration
 
 ### "Connection refused" error
 - Make sure your local LLM server is running
-- Check the `LLM_BASE_URL` URL matches your server
+- Check the `LLM_BASE_URL` matches your server
 - Test with: `curl http://localhost:1234/v1/models`
 
 ### Request timeout
 - The script uses **streaming mode** to handle slow models
 - If still timing out, check your LLM server isn't overloaded
+- Increase timeout in script if needed
 
 ### Model returns code instead of JSON
 - Switch from Coder model to Instruct model
@@ -233,6 +311,26 @@ python -m pytest tests/ -v -m integration
 - Use a larger, more capable model
 - Ensure model has sufficient context window (32K+ recommended)
 - Try adjusting temperature (0.0 for deterministic, 0.3-0.5 for variety)
+
+### PDF text has garbled characters
+- The processor automatically detects and fixes common encoding issues
+- If spaces appear as "1" characters, this is handled automatically
+- For other encoding issues, try a different PDF source
+
+### Large document fails or runs out of context
+- Set `CONTEXT_TOKEN_LIMIT` in `.env` to a value lower than your model's limit
+- The processor will automatically chunk at chapter boundaries
+- Each chunk is processed separately and results are merged
+
+### Many broken references in output
+- Run `fix_exits.py --connect-subgraphs` to normalize exits
+- This matches descriptive exits to actual room names
+- Disconnected areas will be linked together
+
+### heal_map.py fails with "Could not extract valid JSON"
+- The map may be too large for a single LLM call
+- Use `fix_exits.py` instead for large maps (100+ rooms)
+- Or process smaller subsets manually
 
 ## License
 

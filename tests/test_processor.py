@@ -649,3 +649,552 @@ class TestJsonExtraction:
         result = processor.extract_all_rooms("text")
 
         assert len(result) == 1
+
+
+class TestEstimateTokens:
+    """Tests for the estimate_tokens method"""
+
+    def test_basic_estimate(self):
+        """Should estimate ~4 chars per token"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        # 400 characters should be ~100 tokens
+        text = "a" * 400
+        result = processor.estimate_tokens(text)
+
+        assert result == 100
+
+    def test_empty_text(self):
+        """Should return 0 for empty text"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        result = processor.estimate_tokens("")
+
+        assert result == 0
+
+    def test_short_text(self):
+        """Should handle text shorter than 4 chars"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        result = processor.estimate_tokens("abc")
+
+        assert result == 0  # 3 // 4 = 0
+
+
+class TestNeedsChunking:
+    """Tests for the needs_chunking method"""
+
+    @patch('process_transcript_full.CONTEXT_TOKEN_LIMIT', 1000)
+    def test_needs_chunking_true(self):
+        """Should return True for text exceeding limit"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        # 5000 chars = 1250 tokens > 1000 limit
+        text = "a" * 5000
+        result = processor.needs_chunking(text)
+
+        assert result is True
+
+    @patch('process_transcript_full.CONTEXT_TOKEN_LIMIT', 1000)
+    def test_needs_chunking_false(self):
+        """Should return False for text under limit"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        # 2000 chars = 500 tokens < 1000 limit
+        text = "a" * 2000
+        result = processor.needs_chunking(text)
+
+        assert result is False
+
+
+class TestDetectChapterMarkers:
+    """Tests for the detect_chapter_markers method"""
+
+    def test_detect_part_markers(self):
+        """Should detect PART markers"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        text = "Introduction\n\nPART ONE\n\nChapter content\n\nPART TWO\n\nMore content"
+        markers = processor.detect_chapter_markers(text)
+
+        assert len(markers) >= 2
+        marker_texts = [m[1] for m in markers]
+        assert any("PART" in m for m in marker_texts)
+
+    def test_detect_chapter_markers(self):
+        """Should detect CHAPTER markers"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        text = "Book start\n\nCHAPTER 1\n\nContent\n\nCHAPTER 2\n\nMore"
+        markers = processor.detect_chapter_markers(text)
+
+        assert len(markers) >= 2
+
+    def test_detect_mixed_case(self):
+        """Should detect mixed case markers"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        text = "Start\n\nPart One\n\nContent\n\nChapter 1\n\nMore"
+        markers = processor.detect_chapter_markers(text)
+
+        assert len(markers) >= 2
+
+    def test_detect_roman_numerals(self):
+        """Should detect Roman numeral chapters"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        text = "Start\n\nPART I\n\nContent\n\nCHAPTER II\n\nMore"
+        markers = processor.detect_chapter_markers(text)
+
+        assert len(markers) >= 2
+
+    def test_detect_epilogue_prologue(self):
+        """Should detect EPILOGUE and PROLOGUE"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        text = "PROLOGUE\n\nBeginning\n\nContent\n\nEPILOGUE\n\nEnd"
+        markers = processor.detect_chapter_markers(text)
+
+        assert len(markers) >= 2
+        marker_texts = [m[1].upper() for m in markers]
+        assert "PROLOGUE" in marker_texts
+        assert "EPILOGUE" in marker_texts
+
+    def test_detect_with_page_numbers(self):
+        """Should detect markers with PDF page number prefixes"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        text = "6 of 967 PART I\n\nContent\n\n50 of 967 PART II\n\nMore"
+        markers = processor.detect_chapter_markers(text)
+
+        assert len(markers) >= 2
+
+    def test_no_markers_returns_empty(self):
+        """Should return empty list when no markers found"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        text = "Just some regular text without any chapter markers."
+        markers = processor.detect_chapter_markers(text)
+
+        assert markers == []
+
+    def test_markers_sorted_by_position(self):
+        """Should return markers sorted by position"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        text = "PART ONE\n\nContent\n\nPART TWO\n\nMore\n\nPART THREE\n\nEnd"
+        markers = processor.detect_chapter_markers(text)
+
+        positions = [m[0] for m in markers]
+        assert positions == sorted(positions)
+
+
+class TestSplitAtMarkers:
+    """Tests for the split_at_markers method"""
+
+    @patch('process_transcript_full.MIN_CHUNK_TOKENS', 1)
+    def test_split_at_markers_basic(self):
+        """Should split text at marker positions"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        text = "Intro content\n\nPART ONE\n\nChapter content here"
+        markers = [(15, "PART ONE")]
+
+        chunks = processor.split_at_markers(text, markers)
+
+        assert len(chunks) == 2
+        assert "Intro" in chunks[0]['text']
+        assert "PART ONE" in chunks[1]['text']
+
+    def test_split_empty_markers(self):
+        """Should return single chunk when no markers"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        text = "All the content in one piece"
+        markers = []
+
+        chunks = processor.split_at_markers(text, markers)
+
+        assert len(chunks) == 1
+        assert chunks[0]['text'] == text
+        assert chunks[0]['start_marker'] is None
+
+    @patch('process_transcript_full.MIN_CHUNK_TOKENS', 1)
+    def test_chunk_indices_sequential(self):
+        """Should have sequential chunk indices"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        text = "A\n\nPART ONE\n\nB\n\nPART TWO\n\nC"
+        markers = [(3, "PART ONE"), (17, "PART TWO")]
+
+        chunks = processor.split_at_markers(text, markers)
+
+        indices = [c['chunk_index'] for c in chunks]
+        assert indices == list(range(len(chunks)))
+
+
+class TestSplitByTokens:
+    """Tests for the split_by_tokens method"""
+
+    @patch('process_transcript_full.CONTEXT_TOKEN_LIMIT', 100)
+    @patch('process_transcript_full.CHUNK_OVERLAP_TOKENS', 10)
+    def test_split_by_tokens_basic(self):
+        """Should split text into chunks by token count"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        # Create text that needs multiple chunks (100 token limit, ~400 chars)
+        text = "This is a paragraph of content. " * 50  # ~1600 chars
+
+        chunks = processor.split_by_tokens(text, target_tokens=50)
+
+        assert len(chunks) > 1
+        for chunk in chunks:
+            assert 'text' in chunk
+            assert 'estimated_tokens' in chunk
+            assert 'chunk_index' in chunk
+
+    def test_split_by_tokens_short_text(self):
+        """Should return single chunk for short text"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        text = "Short text"
+
+        chunks = processor.split_by_tokens(text, target_tokens=1000)
+
+        assert len(chunks) == 1
+        assert chunks[0]['text'] == text
+
+    @patch('process_transcript_full.CHUNK_OVERLAP_TOKENS', 10)
+    def test_split_by_tokens_has_markers(self):
+        """Should add token chunk markers"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        text = "word " * 500  # Long enough to split
+
+        chunks = processor.split_by_tokens(text, target_tokens=100)
+
+        for chunk in chunks:
+            assert 'Token chunk' in chunk['start_marker']
+
+
+class TestSmartSplit:
+    """Tests for the smart_split method"""
+
+    @patch('process_transcript_full.MIN_CHUNK_TOKENS', 1)
+    def test_smart_split_uses_markers_when_found(self):
+        """Should use marker-based splitting when markers exist"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        text = "Intro\n\nPART ONE\n\nContent\n\nPART TWO\n\nMore content"
+
+        with patch('builtins.print'):  # Suppress print output
+            chunks = processor.smart_split(text)
+
+        # Should have split at PART markers
+        assert len(chunks) >= 2
+
+    def test_smart_split_falls_back_to_tokens(self):
+        """Should use token splitting when no markers found"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        # Text without any chapter markers
+        text = "Regular content without markers. " * 100
+
+        with patch('builtins.print'):
+            chunks = processor.smart_split(text)
+
+        # Should have created chunks
+        assert len(chunks) >= 1
+        # Token chunks have specific marker format
+        assert all('chunk' in str(c.get('start_marker', '')).lower() or c.get('start_marker') is None
+                   for c in chunks)
+
+
+class TestExtractRoomsFromChunk:
+    """Tests for the extract_rooms_from_chunk method"""
+
+    def test_extract_rooms_from_chunk_basic(self):
+        """Should extract rooms from a chunk"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+        processor.model = "test-model"
+
+        mock_chunk = Mock()
+        mock_chunk.choices = [Mock()]
+        mock_chunk.choices[0].delta.content = json.dumps([
+            {"name": "Room A", "description": "First room", "exits": [],
+             "items": [], "characters": [], "events": [], "atmosphere": "neutral"}
+        ])
+
+        mock_client = Mock()
+        mock_client.chat.completions.create.return_value = iter([mock_chunk])
+        processor.client = mock_client
+
+        chunk = {'text': 'Some content', 'start_marker': 'PART ONE', 'chunk_index': 0, 'estimated_tokens': 100}
+
+        with patch('builtins.print'):
+            result = processor.extract_rooms_from_chunk(chunk)
+
+        assert len(result) == 1
+        assert result[0]["name"] == "Room A"
+
+    def test_extract_rooms_from_chunk_with_context(self):
+        """Should include context about previous rooms"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+        processor.model = "test-model"
+
+        mock_chunk = Mock()
+        mock_chunk.choices = [Mock()]
+        mock_chunk.choices[0].delta.content = json.dumps([
+            {"name": "Room B", "description": "Second room", "exits": [],
+             "items": [], "characters": [], "events": [], "atmosphere": "neutral"}
+        ])
+
+        mock_client = Mock()
+        mock_client.chat.completions.create.return_value = iter([mock_chunk])
+        processor.client = mock_client
+
+        chunk = {'text': 'More content', 'start_marker': 'PART TWO', 'chunk_index': 1, 'estimated_tokens': 100}
+
+        with patch('builtins.print'):
+            result = processor.extract_rooms_from_chunk(chunk, chunk_context="Previously seen: Room A")
+
+        assert len(result) == 1
+        # Verify the API was called (context would be in the prompt)
+        mock_client.chat.completions.create.assert_called_once()
+
+
+class TestProcessChunked:
+    """Tests for the process_chunked method"""
+
+    @patch.object(FullContextProcessor, 'smart_split')
+    @patch.object(FullContextProcessor, 'extract_rooms_from_chunk')
+    @patch.object(FullContextProcessor, 'deduplicate_rooms')
+    def test_process_chunked_basic(self, mock_dedup, mock_extract, mock_split):
+        """Should process all chunks and merge results"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        mock_split.return_value = [
+            {'text': 'Chunk 1', 'start_marker': 'PART ONE', 'chunk_index': 0, 'estimated_tokens': 100},
+            {'text': 'Chunk 2', 'start_marker': 'PART TWO', 'chunk_index': 1, 'estimated_tokens': 100}
+        ]
+
+        mock_extract.side_effect = [
+            [{"name": "Room A", "description": "First"}],
+            [{"name": "Room B", "description": "Second"}]
+        ]
+
+        mock_dedup.return_value = [
+            {"name": "Room A", "description": "First"},
+            {"name": "Room B", "description": "Second"}
+        ]
+
+        with patch('builtins.print'):
+            result = processor.process_chunked("Full text")
+
+        assert mock_split.called
+        assert mock_extract.call_count == 2
+        assert mock_dedup.called
+        assert len(result) == 2
+
+    @patch.object(FullContextProcessor, 'smart_split')
+    @patch.object(FullContextProcessor, 'extract_rooms_from_chunk')
+    @patch.object(FullContextProcessor, 'deduplicate_rooms')
+    def test_process_chunked_handles_duplicates(self, mock_dedup, mock_extract, mock_split):
+        """Should deduplicate rooms from multiple chunks"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        mock_split.return_value = [
+            {'text': 'Chunk 1', 'start_marker': 'PART ONE', 'chunk_index': 0, 'estimated_tokens': 100},
+            {'text': 'Chunk 2', 'start_marker': 'PART TWO', 'chunk_index': 1, 'estimated_tokens': 100}
+        ]
+
+        # Both chunks return same room
+        mock_extract.side_effect = [
+            [{"name": "Room A", "description": "Short"}],
+            [{"name": "Room A", "description": "Longer description"}]
+        ]
+
+        mock_dedup.return_value = [
+            {"name": "Room A", "description": "Longer description"}
+        ]
+
+        with patch('builtins.print'):
+            result = processor.process_chunked("Full text")
+
+        # Should call deduplicate with all rooms
+        mock_dedup.assert_called_once()
+        assert len(result) == 1
+
+
+class TestProcessPdfChunkedPath:
+    """Tests for the chunked processing path in process_pdf"""
+
+    @patch.object(FullContextProcessor, 'extract_text_from_pdf')
+    @patch.object(FullContextProcessor, 'needs_chunking')
+    @patch.object(FullContextProcessor, 'process_chunked')
+    def test_process_pdf_uses_chunked_when_needed(self, mock_chunked, mock_needs, mock_extract):
+        """Should use chunked processing for large documents"""
+        mock_extract.return_value = "Large document text"
+        mock_needs.return_value = True
+        mock_chunked.return_value = [
+            {"name": "Room A", "description": "Test", "exits": [],
+             "items": [], "characters": [], "events": [], "atmosphere": "mysterious"}
+        ]
+
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        with patch('builtins.open', mock_open()):
+            with patch('builtins.print'):
+                result = processor.process_pdf("test.pdf", "output.json")
+
+        assert mock_needs.called
+        assert mock_chunked.called
+        assert result is not None
+
+    @patch.object(FullContextProcessor, 'extract_text_from_pdf')
+    @patch.object(FullContextProcessor, 'needs_chunking')
+    @patch.object(FullContextProcessor, 'extract_all_rooms')
+    def test_process_pdf_uses_single_pass_when_small(self, mock_extract_rooms, mock_needs, mock_extract):
+        """Should use single-pass for small documents"""
+        mock_extract.return_value = "Small document text"
+        mock_needs.return_value = False
+        mock_extract_rooms.return_value = [
+            {"name": "Room A", "description": "Test", "exits": [],
+             "items": [], "characters": [], "events": [], "atmosphere": "mysterious"}
+        ]
+
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        with patch('builtins.open', mock_open()):
+            result = processor.process_pdf("test.pdf", "output.json")
+
+        assert mock_needs.called
+        assert mock_extract_rooms.called
+        assert result is not None
+
+
+class TestCleanPdfText:
+    """Tests for the clean_pdf_text method"""
+
+    def test_clean_pdf_text_detects_encoding_issue(self):
+        """Should detect and fix when 1s are used as spaces"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        # Text with 1s instead of spaces (common PDF encoding issue)
+        # Need enough letter1letter patterns to trigger detection (>30%)
+        text = "BOOK1ONE\n\nThis1is1some1text1with1encoding1issues1that1has1many1words"
+
+        with patch('builtins.print'):
+            result = processor.clean_pdf_text(text)
+
+        assert "BOOK ONE" in result
+        assert "This is some text with encoding issues" in result
+
+    def test_clean_pdf_text_preserves_normal_text(self):
+        """Should not modify text that doesn't have encoding issues"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        text = "BOOK ONE\n\nThis is normal text with the number 123 in it."
+        result = processor.clean_pdf_text(text)
+
+        # Should be unchanged (or minimally changed)
+        assert "BOOK ONE" in result
+        assert "normal text" in result
+
+    def test_clean_pdf_text_handles_leading_1s(self):
+        """Should convert leading 1s to indentation spaces when encoding issue detected"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        # Leading 1s that should be spaces, plus enough word1word patterns to trigger detection
+        text = "11111BOOK1ONE\n111Content1here1with1more1encoding1issues1that1trigger1detection"
+
+        with patch('builtins.print'):
+            result = processor.clean_pdf_text(text)
+
+        assert "BOOK ONE" in result
+        assert "Content here" in result
+
+    def test_clean_pdf_text_handles_punctuation(self):
+        """Should fix 1s after punctuation and before letters when encoding issue detected"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        # Need enough letter1letter patterns to trigger detection
+        text = "Hello.1World!1Test,1more1text1and1even1more1words1here1now"
+
+        with patch('builtins.print'):
+            result = processor.clean_pdf_text(text)
+
+        assert "Hello. World" in result
+        assert "more text" in result
+
+
+class TestDetectChapterMarkersWithTocFiltering:
+    """Tests for TOC filtering in detect_chapter_markers"""
+
+    def test_filters_toc_entries_with_very_long_prose(self):
+        """Should prefer chapter markers followed by prose over TOC entries"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        # Simulate a text with TOC entry and actual chapter with very long prose lines
+        # The TOC section needs to be long enough that the prose lines are outside
+        # the 1500 char lookahead window from the TOC marker
+        short_lines = "\n".join(["  Short chapter name " + str(i) for i in range(100)])
+        toc_section = f"""Table of Contents
+
+BOOK ONE
+{short_lines}
+
+"""
+        # Create prose lines that are definitely > 60 chars
+        long_line = "A" * 80  # 80 chars, definitely > 60
+        prose_section = f"""
+BOOK ONE
+
+{long_line}
+{long_line}
+{long_line}
+{long_line}
+{long_line}
+{long_line}
+{long_line}
+{long_line}
+{long_line}
+{long_line}
+"""
+        text = toc_section + prose_section
+
+        markers = processor.detect_chapter_markers(text)
+
+        # Should have found at least one marker
+        assert len(markers) >= 1
+        # The marker should be the one from prose section (after TOC)
+        for pos, marker in markers:
+            assert pos > len(toc_section) - 50  # Allow some tolerance
+
+    def test_handles_trailing_artifacts(self):
+        """Should detect markers with trailing encoding artifacts"""
+        processor = FullContextProcessor.__new__(FullContextProcessor)
+
+        # Create long lines for prose detection (>60 chars each)
+        long_line = "This is a long paragraph of prose content that demonstrates this is actual."
+
+        # Text with trailing 1s (like from PDF encoding issues)
+        text = f"""Start of book
+
+BOOK ONE111
+
+{long_line}
+{long_line}
+{long_line}
+{long_line}
+{long_line}
+{long_line}
+{long_line}
+{long_line}
+{long_line}
+{long_line}
+"""
+        markers = processor.detect_chapter_markers(text)
+
+        assert len(markers) >= 1
+        assert any("BOOK ONE" in m[1] for m in markers)
