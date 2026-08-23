@@ -2,26 +2,27 @@
 
 [![CI](https://github.com/JavaDerek/Adventurer/actions/workflows/ci.yml/badge.svg)](https://github.com/JavaDerek/Adventurer/actions/workflows/ci.yml)
 
-This tool processes fiction transcripts (novels, TV scripts, plays in PDF format) and uses an LLM to extract structured room/location data for creating interactive fiction games. The complete pipeline takes you from PDF to playable game in Claude Desktop.
+This tool processes fiction transcripts (novels, TV scripts, plays in PDF format) and uses an LLM to extract structured room/location data for creating interactive fiction games. The complete pipeline takes you from PDF to a playable game served by
+[run-dmcp](https://github.com/JavaDerek/run-dmcp).
 
 ## Features
 
 - 📄 Extracts text from PDF transcripts with intelligent cleaning (handles encoding issues)
-- 🤖 Supports **local LLMs** (LM Studio, etc.) and **OpenAI API**
+- 🤖 Supports **local LLMs** (Ollama, LM Studio, vLLM, etc.) and **OpenAI API**
 - 📚 Smart chunking for large documents (splits at chapter/part boundaries)
 - 🔄 Streaming support for large models (handles slow generation gracefully)
 - 🏗️ Creates structured JSON with room descriptions, characters, items, and events
 - 🔄 Automatically merges duplicate locations
 - 🗺️ Map analysis to identify connectivity issues
 - 🔧 LLM-powered map healing to fix broken connections
-- 🎮 Direct loading into DMCP for gameplay in Claude Desktop
+- 🎮 Direct loading into run-dmcp for gameplay in any MCP client
 
 ## Requirements
 
 - Python 3.10+
-- A local LLM server (LM Studio, vLLM, text-generation-webui, etc.) OR OpenAI API key
+- A local LLM server (Ollama, LM Studio, vLLM, text-generation-webui, etc.) OR OpenAI API key
 - Recommended: **Instruct-tuned model** with 32K+ context window
-- For gameplay: [DMCP](https://github.com/shawnrushefsky/dmcp) installed
+- For gameplay: [run-dmcp](https://github.com/JavaDerek/run-dmcp) built (Node 20+)
 
 ## Setup
 
@@ -90,7 +91,7 @@ The full pipeline from PDF to playable game:
    ↓
 3. fix_exits.py                →  rooms_fixed.json (normalized exits)
    ↓
-4. load_to_dmcp.py             →  Playable game in Claude Desktop
+4. load_to_run_dmcp.py         →  Playable game in run-dmcp
 ```
 
 **Optional**: Run `analyze_map.py` at any stage to inspect connectivity issues.
@@ -146,17 +147,54 @@ Options:
 
 This creates `rooms_full_fixed.json` with valid room connections.
 
-### Step 4: Load into DMCP for Gameplay
+### Step 4: Load into run-dmcp for Gameplay
+
+First, build run-dmcp once:
 
 ```bash
-python load_to_dmcp.py rooms_fixed.json
+git clone https://github.com/JavaDerek/run-dmcp.git
+cd run-dmcp && npm ci && cd client && npm ci && cd ..
+npm run build
 ```
 
-This loads the game into DMCP and outputs a game ID. In Claude Desktop with DMCP configured:
+Then load your game:
+
+```bash
+python load_to_run_dmcp.py rooms_fixed.json --server-path ~/run-dmcp
+```
+
+The loader speaks MCP over stdio, creates every entity, and prints a game ID
+plus a web UI link:
 
 ```
-load_game <game-id>
+Game ID: ddad8ad6-b9b2-4543-846c-96e868a4248d
+Locations: 28
+Connections: 22
+Characters: 25
+Items: 114
+Notes: 28 (90 beats)
+
+Web UI: http://localhost:3456/games/ddad8ad6-b9b2-4543-846c-96e868a4248d
 ```
+
+`--server-path` defaults to `$RUN_DMCP_PATH`, then `~/run-dmcp`.
+
+To play, point an MCP client at run-dmcp and use `load_game <game-id>`. For
+Claude Desktop, add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "run-dmcp": {
+      "command": "node",
+      "args": ["/absolute/path/to/run-dmcp/dist/index.js"]
+    }
+  }
+}
+```
+
+How the JSON maps onto run-dmcp's tools — and the decisions behind that mapping
+— is documented in [docs/RUN_DMCP_INTEGRATION.md](docs/RUN_DMCP_INTEGRATION.md).
 
 ### Alternative: LLM-Powered Map Healing
 
@@ -203,21 +241,22 @@ Room extraction is a **one-time setup task** where quality matters. OpenAI's mod
 ```bash
 python process_transcript_full.py --remote "transcript.pdf"
 python fix_exits.py --connect-subgraphs transcript_rooms_full.json
-python load_to_dmcp.py transcript_rooms_full_fixed.json
+python load_to_run_dmcp.py transcript_rooms_full_fixed.json
 ```
 
 **Cost**: Approximately $0.02-0.10 per transcript depending on length.
 
-### Gameplay in Claude Desktop
+### Gameplay
 
-Once loaded into DMCP, Claude Desktop handles gameplay - generating NPC dialogue, describing events, and interpreting player actions.
+Once loaded, run-dmcp owns the world state and your MCP client narrates over it
+— generating NPC dialogue, describing events, and interpreting player actions.
 
 | Task | Tool | Notes |
 |------|------|-------|
-| Room extraction | OpenAI API | One-time, quality matters |
+| Room extraction | OpenAI API or local LLM | One-time, quality matters |
 | Exit fixing | fix_exits.py | Deterministic, no API cost |
-| Game loading | load_to_dmcp.py | Creates DMCP game entities |
-| Gameplay | Claude Desktop + DMCP | Interactive play |
+| Game loading | load_to_run_dmcp.py | Creates run-dmcp entities |
+| Gameplay | MCP client + run-dmcp | Interactive play |
 
 ## Output Format
 
@@ -273,16 +312,18 @@ python -m pytest tests/ -v -m integration
 ├── analyze_map.py              # Map connectivity analyzer
 ├── fix_exits.py                # Exit text normalizer (fuzzy matching)
 ├── heal_map.py                 # LLM-powered map healer
-├── load_to_dmcp.py             # DMCP game loader
+├── load_to_run_dmcp.py         # run-dmcp game loader
 ├── test_connection.py          # LLM connection test utility
 ├── tests/
 │   ├── test_processor.py       # Processor unit tests
 │   ├── test_analyzer.py        # Map analyzer tests
 │   ├── test_healer.py          # Map healer tests
-│   ├── test_loader.py          # DMCP loader tests
+│   ├── test_loader.py          # run-dmcp loader tests
 │   ├── test_integration.py     # Integration tests (real LLM)
 │   ├── conftest.py             # Pytest configuration
 │   └── fixtures/               # Test fixtures
+├── docs/                       # Architecture and integration notes
+├── CLAUDE.md                   # Orientation for AI coding agents
 ├── .env.example                # Example configuration
 ├── .coveragerc                 # Coverage configuration
 ├── pytest.ini                  # Pytest markers configuration
@@ -295,8 +336,9 @@ python -m pytest tests/ -v -m integration
 
 ### "Connection refused" error
 - Make sure your local LLM server is running
-- Check the `LLM_BASE_URL` matches your server
-- Test with: `curl http://localhost:1234/v1/models`
+- Check the `LLM_BASE_URL` matches your server — the port differs by backend
+  (LM Studio defaults to `1234`, Ollama to `11434`)
+- Test with: `curl $LLM_BASE_URL/models`
 
 ### Request timeout
 - The script uses **streaming mode** to handle slow models
@@ -327,10 +369,50 @@ python -m pytest tests/ -v -m integration
 - This matches descriptive exits to actual room names
 - Disconnected areas will be linked together
 
+### Load finishes but "Characters: 0"
+
+run-dmcp declares an output schema for `create_character` that omits two fields
+it actually returns, so a validating MCP client rejects every result
+([run-dmcp#24](https://github.com/JavaDerek/run-dmcp/issues/24)). The loader
+works around this; if you see zero characters, check that you're running the
+current `load_to_run_dmcp.py`. Details in
+[docs/RUN_DMCP_INTEGRATION.md](docs/RUN_DMCP_INTEGRATION.md).
+
+### run-dmcp ignores DMCP_DB_PATH or DMCP_HTTP_PORT
+
+The MCP SDK launches the server with a scrubbed environment. The loader forwards
+`os.environ` explicitly; if you're calling the MCP SDK yourself, pass
+`env=dict(os.environ)` to `StdioServerParameters` or the server will silently
+use its default database.
+
+### "run-dmcp not found at .../dist/index.js"
+
+run-dmcp needs building before first use:
+
+```bash
+cd ~/run-dmcp && npm ci && cd client && npm ci && cd ..
+npm run build
+```
+
+### Rooms have fewer exits than the loader reported
+
+Exit directions must be unique within a room — run-dmcp replaces any existing
+exit sharing a direction. The loader labels exits `toward <destination>` to
+guarantee uniqueness. A custom labelling scheme that repeats will lose exits.
+
 ### heal_map.py fails with "Could not extract valid JSON"
 - The map may be too large for a single LLM call
 - Use `fix_exits.py` instead for large maps (100+ rooms)
 - Or process smaller subsets manually
+
+## Documentation
+
+| Document | Contents |
+|---|---|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Pipeline stages, what each script owns, where state lives |
+| [docs/DATA_FORMAT.md](docs/DATA_FORMAT.md) | The room JSON contract every stage reads and writes |
+| [docs/RUN_DMCP_INTEGRATION.md](docs/RUN_DMCP_INTEGRATION.md) | Tool-by-tool mapping onto run-dmcp, and why each call is shaped that way |
+| [CLAUDE.md](CLAUDE.md) | Orientation for AI coding agents working in this repo |
 
 ## License
 

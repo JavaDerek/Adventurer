@@ -145,49 +145,26 @@ class TestLocalLLMConnection:
 class TestGoldStandardComparison:
     """Compare LLM output against gold standard extraction.
 
-    These tests verify that an LLM can extract room data from a known
-    transcript and produce results comparable to a validated gold standard.
+    These tests verify that an LLM can extract room data from a known text and
+    produce results comparable to a validated gold standard.
 
-    The gold standard was generated using OpenAI gpt-5.2 (December 2025) and manually verified.
-    It contains 28 rooms: 18 Capitol/physical locations and 10 Matrix environments.
+    The gold standard is a raw extraction from the Constance Garnett (1914)
+    translation of Dostoevsky's Crime and Punishment. Both the novel and the
+    translation are public domain, so the fixture is freely redistributable.
+    It contains 90 rooms and has not been through fix_exits.py, so its exits
+    are still the descriptive text a fresh LLM run produces.
     """
 
-    # Expected room names from the gold standard (28 total)
-    EXPECTED_ROOM_NAMES = [
-        # Capitol/Physical Locations (18)
-        "TARDIS - Wooden Console Room",
-        "TARDIS - Interior Rooms (Storage/Side Room)",
-        "Gallifrey - Sector 7 (Capitol Perimeter / Cloisters Zone)",
-        "Communications Tower - Lift (Sector 7)",
-        "Communications Tower - Floors (Sector 7)",
-        "Records Room (Capitol Archives / Data Retrieval)",
-        "Chancellery (High Council Offices)",
-        "Capitol Museum",
-        "Adytum (Master's Hidden Chamber)",
-        "Time Lords Robing Room",
-        "Panopticon (Main Chamber)",
-        "Panopticon Gallery",
-        "Panopticon Antechamber",
-        "Detention Room (Capitol Holding Cage)",
-        "Capitol Corridor (Evidence Demonstration Corridor)",
-        "Service Ducts and Foundations (Below Records Room)",
-        "Panopticon Vault",
-        "Panopticon - Eye of Harmony Chamber (Under-Dais Mechanism)",
-        # Matrix Environments (10)
-        "Matrix - Betchworth Quarry",
-        "Matrix - Operating Theatre",
-        "Matrix - World War One Battlefield",
-        "Matrix - Railway Tracks Junction",
-        "Matrix - Quarry Valley and Cliff Face (Hunter Pursuit Zone)",
-        "Matrix - Lightly Wooded Slope (Biplane Attack)",
-        "Matrix - Reed Thicket (Water Trap Area)",
-        "Matrix - Poisoned Pool",
-        "Matrix - Thicket and Tree Ambush Zone",
-        "Matrix - Marsh (Marsh Gas Battleground)",
+    # A stable sample of rooms any competent extraction should find. Asserting
+    # all 90 names would make this test a diff of one model's phrasing.
+    EXPECTED_SAMPLE_ROOMS = [
+        "Petersburg",
+        "Raskolnikov’s garret (lodging under the roof)",
+        "Landlady’s kitchen",
     ]
 
-    PDF_PATH = "The Doctor Who Transcripts - The Deadly Assassin.pdf"
-    GOLD_STANDARD_PATH = "tests/fixtures/deadly_assassin_gold.json"
+    PDF_PATH = "Crime_and_Punishment_T.pdf"
+    GOLD_STANDARD_PATH = "tests/fixtures/crime_and_punishment_gold.json"
 
     @pytest.fixture(autouse=True)
     def setup(self):
@@ -196,9 +173,10 @@ class TestGoldStandardComparison:
         if not os.path.exists(self.PDF_PATH):
             pytest.skip(
                 f"PDF not found: {self.PDF_PATH}\n"
-                "This test requires the copyrighted Doctor Who transcript.\n"
-                "The transcript can be found at: https://www.chakoteya.net/DoctorWho/14-3.html\n"
-                "Save it as a PDF to run this test."
+                "This test needs the public-domain Constance Garnett translation "
+                "of Crime and Punishment as a PDF.\n"
+                "Free source: https://www.gutenberg.org/ebooks/2554\n"
+                f"Save it as {self.PDF_PATH} to run this test."
             )
 
         # Load gold standard
@@ -224,8 +202,13 @@ class TestGoldStandardComparison:
             model=model
         )
 
-    def test_room_count_matches_gold_standard(self):
-        """LLM should extract the same number of rooms as gold standard."""
+    def test_room_count_close_to_gold_standard(self):
+        """LLM should extract a comparable number of rooms.
+
+        Extraction from a novel is not deterministic the way a scene-headed
+        transcript is, so this allows a margin rather than demanding an exact
+        match.
+        """
         try:
             result = self.processor.process_pdf(self.PDF_PATH, None)
         except Exception as e:
@@ -237,21 +220,20 @@ class TestGoldStandardComparison:
         expected_count = self.gold["room_count"]
         actual_count = result["room_count"]
 
-        assert actual_count == expected_count, (
-            f"Room count mismatch: expected {expected_count}, got {actual_count}"
+        assert abs(actual_count - expected_count) <= expected_count * 0.25, (
+            f"Room count far from gold standard: expected ~{expected_count}, "
+            f"got {actual_count}"
         )
 
     def test_gold_standard_has_expected_rooms(self):
-        """Verify the gold standard fixture contains all 28 expected rooms."""
+        """Verify the gold standard fixture contains 90 rooms."""
         gold_room_names = [room["name"] for room in self.gold["rooms"]]
 
-        assert len(gold_room_names) == 28, f"Expected 28 rooms, got {len(gold_room_names)}"
+        assert len(gold_room_names) == 90, f"Expected 90 rooms, got {len(gold_room_names)}"
+        assert len(set(gold_room_names)) == len(gold_room_names), "Duplicate room names"
 
-        for expected_name in self.EXPECTED_ROOM_NAMES:
+        for expected_name in self.EXPECTED_SAMPLE_ROOMS:
             assert expected_name in gold_room_names, f"Missing expected room: {expected_name}"
-
-        for actual_name in gold_room_names:
-            assert actual_name in self.EXPECTED_ROOM_NAMES, f"Unexpected room in gold standard: {actual_name}"
 
     def test_gold_standard_room_structure(self):
         """Verify each room in gold standard has required fields."""
@@ -261,12 +243,20 @@ class TestGoldStandardComparison:
             for field in required_fields:
                 assert field in room, f"Room '{room.get('name', 'unknown')}' missing field: {field}"
 
-    def test_gold_standard_matrix_rooms_count(self):
-        """Verify gold standard contains exactly 10 Matrix environments."""
-        matrix_rooms = [r for r in self.gold["rooms"] if r["name"].startswith("Matrix -")]
-        assert len(matrix_rooms) == 10, f"Expected 10 Matrix rooms, got {len(matrix_rooms)}"
+    def test_gold_standard_is_public_domain(self):
+        """The committed fixture must stay redistributable."""
+        assert self.gold["source"] == "public_domain_novel"
+        provenance = self.gold["provenance"]
+        assert "Garnett" in provenance["translation"]
+        assert "Public domain" in provenance["rights"]
 
-    def test_gold_standard_capitol_rooms_count(self):
-        """Verify gold standard contains exactly 18 Capitol/physical locations."""
-        non_matrix_rooms = [r for r in self.gold["rooms"] if not r["name"].startswith("Matrix -")]
-        assert len(non_matrix_rooms) == 18, f"Expected 18 Capitol rooms, got {len(non_matrix_rooms)}"
+    def test_gold_standard_is_pre_fix_exits(self):
+        """The fixture keeps raw descriptive exits, which fix_exits.py resolves."""
+        room_names = {room["name"] for room in self.gold["rooms"]}
+        unresolved = [
+            exit_name
+            for room in self.gold["rooms"]
+            for exit_name in room["exits"]
+            if exit_name not in room_names
+        ]
+        assert unresolved, "Fixture appears already normalised; it should be raw output"

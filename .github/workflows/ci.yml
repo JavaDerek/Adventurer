@@ -48,6 +48,6 @@ jobs:
       run: |
         python -m py_compile process_transcript_full.py
         python -m py_compile test_connection.py
-        python -m py_compile load_to_dmcp.py
+        python -m py_compile load_to_run_dmcp.py
         python -m py_compile analyze_map.py
         python -m py_compile heal_map.py

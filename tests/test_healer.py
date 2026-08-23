@@ -140,7 +140,7 @@ class TestHealerWithRealAnalyzer:
 
     @pytest.fixture
     def disconnected_map(self):
-        """Map with disconnected areas like the Deadly Assassin."""
+        """Map with disconnected areas, as raw extractions typically produce."""
         return {
             "title": "Disconnected Test",
             "rooms": [

@@ -22,34 +22,34 @@ class TestDeduplicateRooms:
         processor = FullContextProcessor.__new__(FullContextProcessor)
 
         rooms = [
-            {"name": "TARDIS", "description": "Time machine"},
-            {"name": "Panopticon", "description": "Great hall"},
-            {"name": "Matrix", "description": "Virtual reality"}
+            {"name": "Garret", "description": "Time machine"},
+            {"name": "Haymarket", "description": "Great hall"},
+            {"name": "Police Station", "description": "Virtual reality"}
         ]
 
         result = processor.deduplicate_rooms(rooms)
 
         assert len(result) == 3
-        assert {r["name"] for r in result} == {"TARDIS", "Panopticon", "Matrix"}
+        assert {r["name"] for r in result} == {"Garret", "Haymarket", "Police Station"}
 
     def test_exact_duplicates_merged(self):
         """Rooms with identical names should be merged"""
         processor = FullContextProcessor.__new__(FullContextProcessor)
 
         rooms = [
-            {"name": "TARDIS", "description": "Short desc", "items": ["console"]},
-            {"name": "TARDIS", "description": "A longer description here", "items": ["time rotor"]}
+            {"name": "Garret", "description": "Short desc", "items": ["lamp"]},
+            {"name": "Garret", "description": "A longer description here", "items": ["samovar"]}
         ]
 
         result = processor.deduplicate_rooms(rooms)
 
         assert len(result) == 1
-        assert result[0]["name"] == "TARDIS"
+        assert result[0]["name"] == "Garret"
         # Should keep longer description
         assert result[0]["description"] == "A longer description here"
         # Should merge items
-        assert "console" in result[0]["items"]
-        assert "time rotor" in result[0]["items"]
+        assert "lamp" in result[0]["items"]
+        assert "samovar" in result[0]["items"]
 
     def test_empty_name_skipped(self):
         """Rooms with empty names should be skipped"""
@@ -57,22 +57,22 @@ class TestDeduplicateRooms:
 
         rooms = [
             {"name": "", "description": "No name"},
-            {"name": "TARDIS", "description": "Valid room"},
+            {"name": "Garret", "description": "Valid room"},
             {"name": "   ", "description": "Whitespace name"}
         ]
 
         result = processor.deduplicate_rooms(rooms)
 
         assert len(result) == 1
-        assert result[0]["name"] == "TARDIS"
+        assert result[0]["name"] == "Garret"
 
     def test_merge_lists_deduplicates(self):
         """Merging should deduplicate list items"""
         processor = FullContextProcessor.__new__(FullContextProcessor)
 
         rooms = [
-            {"name": "TARDIS", "characters": ["Doctor", "Sarah"]},
-            {"name": "TARDIS", "characters": ["Doctor", "K-9"]}
+            {"name": "Garret", "characters": ["Raskolnikov", "Sonia"]},
+            {"name": "Garret", "characters": ["Raskolnikov", "Razumihin"]}
         ]
 
         result = processor.deduplicate_rooms(rooms)
@@ -80,9 +80,9 @@ class TestDeduplicateRooms:
         assert len(result) == 1
         chars = result[0]["characters"]
         assert len(chars) == 3
-        assert "Doctor" in chars
-        assert "Sarah" in chars
-        assert "K-9" in chars
+        assert "Raskolnikov" in chars
+        assert "Sonia" in chars
+        assert "Razumihin" in chars
 
     def test_empty_rooms_list(self):
         """Empty input should return empty output"""
@@ -101,8 +101,8 @@ class TestEnhanceWithMetadata:
         processor = FullContextProcessor.__new__(FullContextProcessor)
 
         rooms = [
-            {"name": "TARDIS", "characters": ["Doctor"]},
-            {"name": "Panopticon", "characters": ["Doctor", "Chancellor"]}
+            {"name": "Garret", "characters": ["Raskolnikov"]},
+            {"name": "Haymarket", "characters": ["Raskolnikov", "Porfiry"]}
         ]
 
         result = processor.enhance_with_metadata(rooms, "Test Episode")
@@ -118,8 +118,8 @@ class TestEnhanceWithMetadata:
         processor = FullContextProcessor.__new__(FullContextProcessor)
 
         rooms = [
-            {"name": "Room1", "characters": ["Doctor", "Sarah"]},
-            {"name": "Room2", "characters": ["Doctor", "K-9"]},
+            {"name": "Room1", "characters": ["Raskolnikov", "Sonia"]},
+            {"name": "Room2", "characters": ["Raskolnikov", "Razumihin"]},
             {"name": "Room3", "characters": []}
         ]
 
@@ -127,24 +127,24 @@ class TestEnhanceWithMetadata:
 
         chars = result["metadata"]["all_characters"]
         assert len(chars) == 3
-        assert "Doctor" in chars
-        assert "Sarah" in chars
-        assert "K-9" in chars
+        assert "Raskolnikov" in chars
+        assert "Sonia" in chars
+        assert "Razumihin" in chars
 
     def test_all_locations_listed(self):
         """Should list all location names"""
         processor = FullContextProcessor.__new__(FullContextProcessor)
 
         rooms = [
-            {"name": "TARDIS"},
-            {"name": "Panopticon"},
-            {"name": "Matrix"}
+            {"name": "Garret"},
+            {"name": "Haymarket"},
+            {"name": "Police Station"}
         ]
 
         result = processor.enhance_with_metadata(rooms, "Test")
 
         locations = result["metadata"]["all_locations"]
-        assert locations == ["TARDIS", "Panopticon", "Matrix"]
+        assert locations == ["Garret", "Haymarket", "Police Station"]
 
     def test_empty_rooms(self):
         """Should handle empty rooms list"""
@@ -214,7 +214,7 @@ class TestExtractAllRooms:
         mock_chunk = Mock()
         mock_chunk.choices = [Mock()]
         mock_chunk.choices[0].delta.content = json.dumps([
-            {"name": "TARDIS", "description": "Time machine", "exits": [],
+            {"name": "Garret", "description": "Time machine", "exits": [],
              "items": [], "characters": [], "events": [], "atmosphere": "mysterious"}
         ])
 
@@ -227,14 +227,14 @@ class TestExtractAllRooms:
         result = processor.extract_all_rooms("Sample transcript text")
 
         assert len(result) == 1
-        assert result[0]["name"] == "TARDIS"
+        assert result[0]["name"] == "Garret"
 
     def test_strips_markdown_code_blocks(self):
         """Should extract JSON from markdown code blocks"""
         processor = FullContextProcessor.__new__(FullContextProcessor)
         processor.model = "test-model"
 
-        json_content = json.dumps([{"name": "TARDIS", "description": "Test",
+        json_content = json.dumps([{"name": "Garret", "description": "Test",
                                     "exits": [], "items": [], "characters": [],
                                     "events": [], "atmosphere": "mysterious"}])
 
@@ -252,7 +252,7 @@ class TestExtractAllRooms:
         result = processor.extract_all_rooms("Sample text")
 
         assert len(result) == 1
-        assert result[0]["name"] == "TARDIS"
+        assert result[0]["name"] == "Garret"
 
     def test_handles_streaming_chunks(self):
         """Should accumulate multiple streaming chunks"""
@@ -260,7 +260,7 @@ class TestExtractAllRooms:
         processor.model = "test-model"
 
         # Split JSON across multiple chunks
-        json_str = json.dumps([{"name": "TARDIS", "description": "Test",
+        json_str = json.dumps([{"name": "Garret", "description": "Test",
                                "exits": [], "items": [], "characters": [],
                                "events": [], "atmosphere": "mysterious"}])
 
@@ -278,14 +278,14 @@ class TestExtractAllRooms:
         result = processor.extract_all_rooms("Sample text")
 
         assert len(result) == 1
-        assert result[0]["name"] == "TARDIS"
+        assert result[0]["name"] == "Garret"
 
     def test_handles_empty_delta_content(self):
         """Should handle chunks with no content"""
         processor = FullContextProcessor.__new__(FullContextProcessor)
         processor.model = "test-model"
 
-        json_content = json.dumps([{"name": "TARDIS", "description": "Test",
+        json_content = json.dumps([{"name": "Garret", "description": "Test",
                                     "exits": [], "items": [], "characters": [],
                                     "events": [], "atmosphere": "mysterious"}])
 
@@ -317,10 +317,10 @@ class TestExtractAllRooms:
 
         # Response with duplicate room names
         json_content = json.dumps([
-            {"name": "TARDIS", "description": "Short", "exits": [],
-             "items": ["console"], "characters": [], "events": [], "atmosphere": "mysterious"},
-            {"name": "TARDIS", "description": "Longer description", "exits": [],
-             "items": ["time rotor"], "characters": [], "events": [], "atmosphere": "mysterious"}
+            {"name": "Garret", "description": "Short", "exits": [],
+             "items": ["lamp"], "characters": [], "events": [], "atmosphere": "mysterious"},
+            {"name": "Garret", "description": "Longer description", "exits": [],
+             "items": ["samovar"], "characters": [], "events": [], "atmosphere": "mysterious"}
         ])
 
         mock_chunk = Mock()
@@ -335,10 +335,10 @@ class TestExtractAllRooms:
 
         # Should be deduplicated to 1 room
         assert len(result) == 1
-        assert result[0]["name"] == "TARDIS"
+        assert result[0]["name"] == "Garret"
         # Should have merged items
-        assert "console" in result[0]["items"]
-        assert "time rotor" in result[0]["items"]
+        assert "lamp" in result[0]["items"]
+        assert "samovar" in result[0]["items"]
 
 
 class TestProcessPdf:
@@ -350,8 +350,8 @@ class TestProcessPdf:
         """Should run full pipeline and save output"""
         mock_extract_text.return_value = "Sample transcript"
         mock_extract_rooms.return_value = [
-            {"name": "TARDIS", "description": "Test", "exits": [],
-             "items": [], "characters": ["Doctor"], "events": [], "atmosphere": "mysterious"}
+            {"name": "Garret", "description": "Test", "exits": [],
+             "items": [], "characters": ["Raskolnikov"], "events": [], "atmosphere": "mysterious"}
         ]
 
         processor = FullContextProcessor.__new__(FullContextProcessor)
@@ -361,7 +361,7 @@ class TestProcessPdf:
 
         assert result is not None
         assert result["room_count"] == 1
-        assert result["rooms"][0]["name"] == "TARDIS"
+        assert result["rooms"][0]["name"] == "Garret"
 
         # Verify file was written
         mock_file.assert_called_with("output.json", 'w', encoding='utf-8')
@@ -385,7 +385,7 @@ class TestProcessPdf:
         """Should generate default output path from input filename"""
         mock_extract_text.return_value = "Sample transcript"
         mock_extract_rooms.return_value = [
-            {"name": "TARDIS", "description": "Test", "exits": [],
+            {"name": "Garret", "description": "Test", "exits": [],
              "items": [], "characters": [], "events": [], "atmosphere": "mysterious"}
         ]
 
@@ -404,47 +404,47 @@ class TestExtractJsonFromResponse:
     def test_direct_json_array(self):
         """Should parse clean JSON array directly"""
         processor = FullContextProcessor.__new__(FullContextProcessor)
-        response = '[{"name": "TARDIS"}, {"name": "Panopticon"}]'
+        response = '[{"name": "Garret"}, {"name": "Haymarket"}]'
 
         result = processor.extract_json_from_response(response)
 
         assert len(result) == 2
-        assert result[0]["name"] == "TARDIS"
+        assert result[0]["name"] == "Garret"
 
     def test_json_object_with_rooms_key(self):
         """Should extract rooms array from object with rooms key"""
         processor = FullContextProcessor.__new__(FullContextProcessor)
-        response = '{"rooms": [{"name": "TARDIS"}]}'
+        response = '{"rooms": [{"name": "Garret"}]}'
 
         result = processor.extract_json_from_response(response)
 
         assert len(result) == 1
-        assert result[0]["name"] == "TARDIS"
+        assert result[0]["name"] == "Garret"
 
     def test_markdown_json_block(self):
         """Should extract from ```json code blocks"""
         processor = FullContextProcessor.__new__(FullContextProcessor)
-        response = 'Here is the JSON:\n```json\n[{"name": "TARDIS"}]\n```\nDone!'
+        response = 'Here is the JSON:\n```json\n[{"name": "Garret"}]\n```\nDone!'
 
         result = processor.extract_json_from_response(response)
 
         assert len(result) == 1
-        assert result[0]["name"] == "TARDIS"
+        assert result[0]["name"] == "Garret"
 
     def test_plain_markdown_block(self):
         """Should extract from plain ``` code blocks"""
         processor = FullContextProcessor.__new__(FullContextProcessor)
-        response = '```\n[{"name": "TARDIS"}]\n```'
+        response = '```\n[{"name": "Garret"}]\n```'
 
         result = processor.extract_json_from_response(response)
 
         assert len(result) == 1
-        assert result[0]["name"] == "TARDIS"
+        assert result[0]["name"] == "Garret"
 
     def test_json_array_with_surrounding_text(self):
         """Should find JSON array boundaries in mixed text"""
         processor = FullContextProcessor.__new__(FullContextProcessor)
-        response = 'Here are the rooms: [{"name": "TARDIS"}, {"name": "Matrix"}] Hope this helps!'
+        response = 'Here are the rooms: [{"name": "Garret"}, {"name": "Police Station"}] Hope this helps!'
 
         result = processor.extract_json_from_response(response)
 
@@ -453,7 +453,7 @@ class TestExtractJsonFromResponse:
     def test_rooms_object_with_surrounding_text(self):
         """Should find {"rooms": ...} object in mixed text"""
         processor = FullContextProcessor.__new__(FullContextProcessor)
-        response = 'Output: {"rooms": [{"name": "TARDIS"}]} end'
+        response = 'Output: {"rooms": [{"name": "Garret"}]} end'
 
         result = processor.extract_json_from_response(response)
 
@@ -471,12 +471,12 @@ class TestExtractJsonFromResponse:
     def test_nested_brackets_handled(self):
         """Should handle nested JSON structures correctly"""
         processor = FullContextProcessor.__new__(FullContextProcessor)
-        response = '[{"name": "TARDIS", "items": ["console", "lever"]}]'
+        response = '[{"name": "Garret", "items": ["lamp", "lever"]}]'
 
         result = processor.extract_json_from_response(response)
 
         assert len(result) == 1
-        assert result[0]["items"] == ["console", "lever"]
+        assert result[0]["items"] == ["lamp", "lever"]
 
 
 class TestGetLlmConfig:
@@ -540,7 +540,7 @@ class TestExtractAllRoomsErrorHandling:
         processor.model = "test-model"
 
         # Response with text before JSON (will fail initial parse but fallback succeeds)
-        response = 'Here is the data: [{"name": "TARDIS"}]'
+        response = 'Here is the data: [{"name": "Garret"}]'
 
         mock_chunk = Mock()
         mock_chunk.choices = [Mock()]
@@ -553,7 +553,7 @@ class TestExtractAllRoomsErrorHandling:
         result = processor.extract_all_rooms("text")
 
         assert len(result) == 1
-        assert result[0]["name"] == "TARDIS"
+        assert result[0]["name"] == "Garret"
 
     def test_api_exception_returns_empty(self):
         """Should return empty list on API exception"""

@@ -174,27 +174,28 @@ class TestMapAnalyzer:
 
 
 class TestMapAnalyzerWithFixture:
-    """Tests using the actual Deadly Assassin fixture."""
+    """Tests using the Crime and Punishment fixture."""
 
     @pytest.fixture
-    def deadly_assassin_analyzer(self):
-        """Load the Deadly Assassin map fixture."""
-        with open("tests/fixtures/deadly_assassin_gold.json") as f:
+    def novel_analyzer(self):
+        """Load the Crime and Punishment map fixture."""
+        with open("tests/fixtures/crime_and_punishment_gold.json") as f:
             data = json.load(f)
         return MapAnalyzer(data)
 
-    def test_fixture_loads(self, deadly_assassin_analyzer):
+    def test_fixture_loads(self, novel_analyzer):
         """Test that the fixture loads correctly."""
-        assert len(deadly_assassin_analyzer.rooms) > 0
+        assert len(novel_analyzer.rooms) > 0
 
-    def test_fixture_has_broken_refs(self, deadly_assassin_analyzer):
-        """Test that the fixture has expected connectivity issues."""
-        broken = deadly_assassin_analyzer.find_broken_references()
-        # The gold standard might be better connected, but should still find some issues
+    def test_fixture_has_broken_refs(self, novel_analyzer):
+        """Raw extraction emits descriptive exits, so broken refs are expected."""
+        broken = novel_analyzer.find_broken_references()
         assert isinstance(broken, list)
+        # This fixture is pre-fix_exits.py output; it should have work to do.
+        assert len(broken) > 0
 
-    def test_fixture_reachability(self, deadly_assassin_analyzer):
+    def test_fixture_reachability(self, novel_analyzer):
         """Test reachability analysis on the fixture."""
-        reachable = deadly_assassin_analyzer.find_reachable("TARDIS")
-        # TARDIS should be able to reach at least itself
-        assert "TARDIS" in reachable or len(reachable) == 0
+        reachable = novel_analyzer.find_reachable("Petersburg")
+        # The start node should be able to reach at least itself.
+        assert "Petersburg" in reachable or len(reachable) == 0
