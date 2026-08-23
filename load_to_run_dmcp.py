@@ -63,12 +63,14 @@ async def load_game_with_session(
 
     This is the core logic, separated for testability.
     """
+    reset_schema_drift_state()
+
     title = truncate(game_data.get("title", "Untitled Adventure"), NAME_MAX)
     rooms = game_data.get("rooms", [])
 
     # Create the game
     print("\nCreating game...")
-    game_result = await session.call_tool("create_game", {
+    game_result = await call_tool(session, "create_game", {
         "name": title,
         "setting": truncate(setting, DESCRIPTION_MAX),
         "style": truncate(style, NAME_MAX),
@@ -95,7 +97,7 @@ async def load_game_with_session(
         if atmosphere:
             args["properties"] = {"atmosphere": truncate(atmosphere, DESCRIPTION_MAX)}
 
-        result = await session.call_tool("create_location", args)
+        result = await call_tool(session, "create_location", args)
         loc_id = extract_id_from_result(result, "location")
         location_ids[room.get("name", "Unknown Room")] = loc_id
         print(f"  + {name}")
@@ -131,7 +133,7 @@ async def load_game_with_session(
                 # one exists (fix_exits.py adds it). Letting the server infer
                 # reverse exits would invent connections the map never had and
                 # silently repair the one-way doors analyze_map.py reports on.
-                await session.call_tool("connect_locations", {
+                await call_tool(session, "connect_locations", {
                     "fromLocationId": source_id,
                     "toLocationId": target_id,
                     "fromDirection": exit_direction(exit_name),
@@ -161,7 +163,7 @@ async def load_game_with_session(
     for char_name, first_location in character_locations.items():
         loc_id = location_ids.get(first_location)
         try:
-            result = await session.call_tool("create_character", {
+            result = await call_tool(session, "create_character", {
                 "gameId": game_id,
                 "name": truncate(char_name, NAME_MAX),
                 "isPlayer": char_name.lower() == "player",
@@ -185,7 +187,7 @@ async def load_game_with_session(
 
         for item_name in room.get("items", []):
             try:
-                await session.call_tool("create_item", {
+                await call_tool(session, "create_item", {
                     "gameId": game_id,
                     "ownerId": loc_id,
                     "ownerType": "location",
@@ -221,7 +223,7 @@ async def load_game_with_session(
 
         content = "\n".join(f"- {event}" for event in events)
         try:
-            await session.call_tool("create_note", {
+            await call_tool(session, "create_note", {
                 "gameId": game_id,
                 "title": truncate(f"Source beats: {room_name}", NAME_MAX),
                 "content": truncate(content, CONTENT_MAX),
@@ -278,14 +280,9 @@ _VALIDATION_HOOKS = ("validate_tool_result", "_validate_tool_result")
 def _disable_structured_output_validation(session_cls) -> list:
     """Stop the MCP SDK from rejecting results that don't match a declared schema.
 
-    run-dmcp declares an `outputSchema` for `create_character` that omits the
-    `voice` and `imageGen` fields the tool actually returns. Because the schema
-    is generated with `additionalProperties: false`, a validating client raises
-    on every call and no characters get created. The payload itself is fine --
-    it carries the character and its id -- so the import trusts the content and
-    skips validation.
-
-    Upstream: https://github.com/JavaDerek/run-dmcp/issues/24
+    Called only after a server has actually returned content its own declared
+    schema rejects. Validation is otherwise left enabled, so genuine drift in a
+    future run-dmcp surfaces instead of being silently suppressed.
 
     Returns the hook names that were patched, so callers can tell whether the
     SDK still exposes one.
@@ -306,6 +303,68 @@ def _disable_structured_output_validation(session_cls) -> list:
             ", ".join(_VALIDATION_HOOKS),
         )
     return patched
+
+
+# A server whose declared outputSchema disagrees with the payload it actually
+# returns. run-dmcp shipped exactly this on its four character tools
+# (https://github.com/JavaDerek/run-dmcp/issues/24, fixed upstream), which made
+# every character silently fail while locations and items succeeded.
+_SCHEMA_DRIFT_MARKERS = (
+    "invalid structured content",
+    "additional properties are not allowed",
+    "did not return structured content",
+)
+
+_schema_drift_detected = False
+
+
+def is_schema_drift_error(exc: BaseException) -> bool:
+    """True if `exc` is the SDK rejecting a result against its declared schema."""
+    message = str(exc).lower()
+    return any(marker in message for marker in _SCHEMA_DRIFT_MARKERS)
+
+
+def schema_drift_detected() -> bool:
+    """Whether this run has degraded output validation."""
+    return _schema_drift_detected
+
+
+def reset_schema_drift_state() -> None:
+    """Clear the degrade latch. Called at the start of each load, and by tests."""
+    global _schema_drift_detected
+    _schema_drift_detected = False
+
+
+async def call_tool(session, name: str, arguments: dict):
+    """Call an MCP tool, tolerating a server that violates its own output schema.
+
+    Output validation is left enabled, so a genuine mismatch stays visible. The
+    first time a server actually returns content its declared schema rejects,
+    this explains the problem once, turns validation off for the rest of the
+    run, and retries -- the payload is well-formed, and a load should not lose
+    every character over a wrong declaration.
+    """
+    global _schema_drift_detected
+    try:
+        return await session.call_tool(name, arguments)
+    except RuntimeError as exc:
+        if not is_schema_drift_error(exc):
+            raise
+        if not _schema_drift_detected:
+            _schema_drift_detected = True
+            logger.warning(
+                "Tool '%s' returned content that its own declared output schema "
+                "rejects (%s). This is a server-side bug: run-dmcp had it on the "
+                "character tools until "
+                "https://github.com/JavaDerek/run-dmcp/issues/24 was fixed, so an "
+                "outdated run-dmcp build is the likely cause -- pull and rebuild "
+                "it. Disabling output validation for the rest of this load and "
+                "continuing; the payloads themselves are intact.",
+                name,
+                exc,
+            )
+            _disable_structured_output_validation(type(session))
+        return await session.call_tool(name, arguments)
 
 
 def _read_game_json(json_path: str) -> dict:
@@ -332,7 +391,6 @@ async def load_game_to_run_dmcp(
         print("Error: mcp package not installed. Run: pip install mcp")
         sys.exit(1)
 
-    _disable_structured_output_validation(ClientSession)
 
     # Load JSON data (synchronously, before the server connection is opened)
     game_data = await asyncio.to_thread(_read_game_json, json_path)

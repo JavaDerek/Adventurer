@@ -95,9 +95,13 @@ def fix_exits(rooms_data: dict, min_score: float = 0.7) -> dict:
     """Fix exits in the rooms data."""
     rooms = rooms_data.get("rooms", [])
 
-    # Collect all room names
+    # Collect all room names. The normalized lookup is built from a sorted
+    # list, not from the set: dict order follows insertion order, and iterating
+    # a set of strings follows randomised hashes. That decided both which name
+    # won a normalization collision and how equal-scoring fuzzy matches broke,
+    # so identical input produced a different map on every run.
     room_names = set(room.get("name", "") for room in rooms)
-    room_names_normalized = {normalize_name(name): name for name in room_names}
+    room_names_normalized = {normalize_name(name): name for name in sorted(room_names)}
 
     print(f"Found {len(room_names)} rooms")
 
@@ -201,9 +205,12 @@ def connect_disconnected_rooms(rooms_data: dict, start_room: str = None) -> dict
         if sg == main_subgraph:
             continue
 
-        # Pick a representative room from each subgraph
-        main_room = list(main_subgraph)[0]
-        other_room = list(sg)[0]
+        # Pick a representative room from each subgraph. Sorted, not
+        # `list(set)[0]`: set iteration follows randomised string hashes, so
+        # that picked a different pair of rooms on every run and produced a
+        # different map from identical input.
+        main_room = min(main_subgraph)
+        other_room = min(sg)
 
         # Add bidirectional connection
         if main_room in room_by_name and other_room in room_by_name:

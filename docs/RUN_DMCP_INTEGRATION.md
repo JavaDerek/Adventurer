@@ -95,15 +95,22 @@ Additional properties are not allowed ('imageGen', 'voice' were unexpected)
 ```
 
 The symptom is a load that reports `Characters: 0` while everything else
-succeeds. `_disable_structured_output_validation()` skips the check; the payload
-itself is fine and carries the id the loader needs.
+succeeds.
 
-**This is an upstream bug**, tracked as
-[run-dmcp#24](https://github.com/JavaDerek/run-dmcp/issues/24). It affects all
-four tools that declare `outputSchema: characterOutputSchema` —
+**This was an upstream bug** — [run-dmcp#24](https://github.com/JavaDerek/run-dmcp/issues/24),
+**fixed** by adding `voice` and `imageGen` to `characterOutputSchema`. It
+affected all four tools declaring `outputSchema: characterOutputSchema`:
 `create_character`, `get_character`, `update_character` and
-`get_character_by_name`. The fix is to add `voice` and `imageGen` to
-`characterOutputSchema`. Until that ships, the workaround stays.
+`get_character_by_name`. Against a current run-dmcp build, output validation
+stays on and passes.
+
+The loader still tolerates it, because someone may be running an older
+checkout. Validation is **not** disabled up front — doing that would suppress
+genuine schema drift in some future run-dmcp, which is exactly the class of bug
+this was. Instead `call_tool()` leaves validation enabled and reacts only if a
+server actually returns content its own schema rejects: it logs one warning
+naming the cause and the remedy, disables validation for the rest of that load,
+and retries. A healthy server never triggers it.
 
 Note the hook name: the MCP Python SDK renamed `_validate_tool_result` to the
 public `validate_tool_result` in v2.0. Adventurer's original code patched only

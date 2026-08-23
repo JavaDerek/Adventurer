@@ -15,12 +15,16 @@ from load_to_run_dmcp import (
     DESCRIPTION_MAX,
     NAME_MAX,
     _disable_structured_output_validation,
+    call_tool,
     exit_direction,
     extract_id_from_result,
     extract_web_ui_url,
+    is_schema_drift_error,
     load_game_to_run_dmcp,
     load_game_with_session,
     normalize_character_name,
+    reset_schema_drift_state,
+    schema_drift_detected,
     truncate,
 )
 
@@ -876,3 +880,140 @@ class TestServerEnvironment:
         env = captured["params"].env
         assert env is not None, "StdioServerParameters.env must be set"
         assert env["DMCP_DB_PATH"] == "/tmp/scratch-games.db"
+
+
+class TestSchemaDriftTolerance:
+    """Validation stays on; it degrades only if a server actually violates it.
+
+    run-dmcp#24 is fixed upstream, so a current server passes validation and
+    real schema drift should surface. A stale checkout must still load, with an
+    explanation rather than a silent 'Characters: 0'.
+    """
+
+    def setup_method(self):
+        reset_schema_drift_state()
+
+    def teardown_method(self):
+        reset_schema_drift_state()
+
+    def test_recognises_schema_drift_error(self):
+        exc = RuntimeError(
+            "Invalid structured content returned by tool create_character: "
+            "Additional properties are not allowed ('imageGen', 'voice' were unexpected)"
+        )
+        assert is_schema_drift_error(exc)
+
+    def test_unrelated_runtime_error_is_not_drift(self):
+        assert not is_schema_drift_error(RuntimeError("connection reset"))
+
+    @pytest.mark.asyncio
+    async def test_validation_left_alone_on_a_healthy_server(self):
+        """No drift means no patching -- real errors keep surfacing."""
+        session = AsyncMock()
+        session.call_tool = AsyncMock(return_value="ok")
+
+        result = await call_tool(session, "create_character", {"name": "x"})
+
+        assert result == "ok"
+        assert session.call_tool.await_count == 1
+        assert schema_drift_detected() is False
+
+    @pytest.mark.asyncio
+    async def test_non_drift_errors_propagate(self):
+        """A genuine failure must not be swallowed by the drift handler."""
+        session = AsyncMock()
+        session.call_tool = AsyncMock(side_effect=RuntimeError("connection reset"))
+
+        with pytest.raises(RuntimeError, match="connection reset"):
+            await call_tool(session, "create_character", {})
+
+        assert schema_drift_detected() is False
+
+    @pytest.mark.asyncio
+    async def test_drift_degrades_once_then_retries(self, caplog):
+        """First drift: warn, disable validation, retry. Then carry on."""
+        class FakeSession:
+            def __init__(self):
+                self.calls = 0
+
+            async def validate_tool_result(self, name, result):
+                return None
+
+            async def call_tool(self, name, arguments):
+                self.calls += 1
+                if self.calls == 1:
+                    raise RuntimeError(
+                        "Invalid structured content returned by tool "
+                        "create_character: Additional properties are not "
+                        "allowed ('imageGen', 'voice' were unexpected)"
+                    )
+                return "ok"
+
+        session = FakeSession()
+        with caplog.at_level(logging.WARNING):
+            result = await call_tool(session, "create_character", {})
+
+        assert result == "ok"
+        assert session.calls == 2
+        assert schema_drift_detected() is True
+        # The warning must name the cause and the remedy, not just the error.
+        assert "run-dmcp" in caplog.text
+        assert "24" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_warns_only_once_across_many_calls(self, caplog):
+        """A 568-room load must not emit one warning per character."""
+        class FakeSession:
+            """Drifts on every first attempt; the post-degrade retry succeeds."""
+
+            def __init__(self):
+                self.attempts = 0
+
+            async def validate_tool_result(self, name, result):
+                return None
+
+            async def call_tool(self, name, arguments):
+                self.attempts += 1
+                if self.attempts % 2 == 1:
+                    raise RuntimeError("Invalid structured content returned by tool x")
+                return "ok"
+
+        session = FakeSession()
+        with caplog.at_level(logging.WARNING):
+            for _ in range(3):
+                await call_tool(session, "create_character", {})
+
+        assert session.attempts == 6
+
+        warnings = [r for r in caplog.records if "run-dmcp" in r.getMessage()]
+        assert len(warnings) == 1
+
+    @pytest.mark.asyncio
+    async def test_characters_survive_a_stale_server(self):
+        """End to end: a drifting server still yields characters."""
+        game_data = {
+            "title": "Stale",
+            "rooms": [{
+                "name": "R", "description": "r", "exits": [],
+                "characters": ["Raskolnikov", "Sonia"],
+            }],
+        }
+
+        class FakeSession:
+            def __init__(self):
+                self.made = []
+
+            async def validate_tool_result(self, name, result):
+                return None
+
+            async def call_tool(self, name, arguments):
+                if name == "create_character" and name not in self.made:
+                    self.made.append(name)
+                    raise RuntimeError("Invalid structured content returned by tool create_character")
+                result = MagicMock()
+                result.content = [MagicMock(text=json.dumps({"id": "id-1"}))]
+                return result
+
+        result = await load_game_with_session(FakeSession(), game_data)
+
+        assert len(result["character_ids"]) == 2

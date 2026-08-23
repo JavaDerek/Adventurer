@@ -254,7 +254,7 @@ Once loaded, run-dmcp owns the world state and your MCP client narrates over it
 | Task | Tool | Notes |
 |------|------|-------|
 | Room extraction | OpenAI API or local LLM | One-time, quality matters |
-| Exit fixing | fix_exits.py | Deterministic, no API cost |
+| Exit fixing | fix_exits.py | Deterministic and reproducible, no API cost |
 | Game loading | load_to_run_dmcp.py | Creates run-dmcp entities |
 | Gameplay | MCP client + run-dmcp | Interactive play |
 
@@ -371,11 +371,11 @@ python -m pytest tests/ -v -m integration
 
 ### Load finishes but "Characters: 0"
 
-run-dmcp declares an output schema for `create_character` that omits two fields
-it actually returns, so a validating MCP client rejects every result
-([run-dmcp#24](https://github.com/JavaDerek/run-dmcp/issues/24)). The loader
-works around this; if you see zero characters, check that you're running the
-current `load_to_run_dmcp.py`. Details in
+Older run-dmcp builds declared an output schema for the character tools that
+omitted two fields they actually return, so a validating MCP client rejected
+every result ([run-dmcp#24](https://github.com/JavaDerek/run-dmcp/issues/24),
+since fixed). Pull and rebuild run-dmcp. The loader detects this and continues
+anyway, logging a warning that says so. Details in
 [docs/RUN_DMCP_INTEGRATION.md](docs/RUN_DMCP_INTEGRATION.md).
 
 ### run-dmcp ignores DMCP_DB_PATH or DMCP_HTTP_PORT

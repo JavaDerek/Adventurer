@@ -40,7 +40,13 @@ out wrong, fixing the JSON is usually faster than re-running the LLM. Keep it
 that way: don't collapse stages into one command.
 
 **Only two stages cost money or need a GPU.** Extraction and healing call an
-LLM; everything else is deterministic. `fix_exits.py` exists because it solves
+LLM; everything else is deterministic — genuinely so, and tested. `fix_exits.py`
+and `analyze_map.py` once picked representative rooms out of Python sets, whose
+iteration order follows per-process randomised string hashes, so the same input
+produced a different map on each run. Both now pick with `min()`, and
+`tests/test_fix_exits.py` runs the repair chain under four `PYTHONHASHSEED`
+values and fails if the outputs differ. Never reintroduce `next(iter(a_set))`
+or `list(a_set)[0]` on a path that shapes output. `fix_exits.py` exists because it solves
 most connectivity problems without a model, and it is the recommended path for
 maps over ~100 rooms — `heal_map.py` struggles to hold a large map in one call.
 
@@ -89,6 +95,8 @@ DMCP_DB_PATH=/tmp/scratch.db python load_to_run_dmcp.py \
   /tmp/cp_fixed.json --server-path ~/run-dmcp
 ```
 
-Expect 90 locations, 226 connections, 113 characters, 191 items, 90 notes.
+Expect 90 locations, 228 connections, 113 characters, 191 items, 90 notes.
+Those numbers are reproducible: the repair stages are deterministic, and
+`tests/test_fix_exits.py` fails if that stops being true.
 Load the fixture directly, without `fix_exits.py`, and connections drop to 2 —
 that is correct behaviour, not a bug.

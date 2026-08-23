@@ -105,8 +105,11 @@ class MapAnalyzer:
         subgraphs = []
 
         while unvisited:
-            # Pick an arbitrary starting point
-            start = next(iter(unvisited))
+            # Pick the lowest-sorting room, not an arbitrary one. `next(iter(set))`
+            # follows hash order, which Python randomises per process, so it made
+            # the subgraph list -- and every downstream repair -- differ between
+            # otherwise identical runs.
+            start = min(unvisited)
 
             # Find all rooms connected to this one (in either direction)
             connected = set()

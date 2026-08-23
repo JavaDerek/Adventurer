@@ -80,7 +80,7 @@ DMCP_DB_PATH=/tmp/scratch.db DMCP_HTTP_PORT=39456 \
   python load_to_run_dmcp.py /tmp/cp_fixed.json --server-path ~/run-dmcp
 ```
 
-Expect: 90 locations, 226 connections, 113 characters, 191 items, 90 notes
+Expect: 90 locations, 228 connections, 113 characters, 191 items, 90 notes
 (153 beats), 0 warnings. A load reporting `Characters: 0` or `Connections: 0`
 while other counts look fine means a schema mismatch, not empty input.
 
@@ -117,6 +117,15 @@ unused attribute, no error. If you must patch, assert the patch landed.
 string. Truncating or normalising a name for display must not change the key
 used for lookups.
 
+**Never pick from a set on an output path.** `next(iter(a_set))` and
+`list(a_set)[0]` follow randomised string hashes, so they differ between
+processes. That made `fix_exits.py` emit a different map on every run of
+identical input — while looking perfectly deterministic in-process, which is
+why unit tests missed it for so long. Use `min()` or `sorted()`, and note that
+a dict built by iterating a set inherits the same problem through its insertion
+order. `tests/test_fix_exits.py` guards this across four `PYTHONHASHSEED`
+values.
+
 ## Repository conventions
 
 - Every module gets `logger = logging.getLogger(__name__)`.
@@ -131,10 +140,13 @@ used for lookups.
 
 ## Known upstream issue
 
-run-dmcp's `characterOutputSchema` omits the `voice` and `imageGen` fields that
-the character tools actually return. Because the generated JSON Schema sets
-`additionalProperties: false`, a validating MCP client rejects every character.
-Tracked as [run-dmcp#24](https://github.com/JavaDerek/run-dmcp/issues/24).
-`_disable_structured_output_validation()` works around it. When run-dmcp fixes
-the schema, that workaround can go — but only once the fixed version is what
-users are likely to have.
+[run-dmcp#24](https://github.com/JavaDerek/run-dmcp/issues/24) — the character
+tools declared an output schema omitting `voice` and `imageGen`, so a
+validating client rejected every character. **Fixed upstream.** Against a
+current build, validation stays on and passes.
+
+`call_tool()` still tolerates it for anyone on an older checkout, but lazily:
+validation stays enabled, and only a server that actually violates its own
+schema triggers a single explanatory warning plus a retry. Do not turn this
+into an unconditional disable — that would hide the next instance of exactly
+this bug.
