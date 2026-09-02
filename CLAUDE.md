@@ -77,7 +77,7 @@ python fix_exits.py tests/fixtures/crime_and_punishment_gold.json \
   --connect-subgraphs -o /tmp/cp_fixed.json
 
 DMCP_DB_PATH=/tmp/scratch.db DMCP_HTTP_PORT=39456 \
-  python load_to_run_dmcp.py /tmp/cp_fixed.json --server-path ~/run-dmcp
+  python load_to_run_dmcp.py /tmp/cp_fixed.json --server-path ~/rpg/run-dmcp
 ```
 
 Expect: 90 locations, 228 connections, 113 characters, 191 items, 90 notes

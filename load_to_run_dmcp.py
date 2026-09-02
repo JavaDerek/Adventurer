@@ -506,8 +506,8 @@ def main():
     )
     parser.add_argument(
         "--server-path",
-        default=os.environ.get("RUN_DMCP_PATH", "~/run-dmcp"),
-        help="Path to the run-dmcp checkout (default: $RUN_DMCP_PATH or ~/run-dmcp)"
+        default=os.environ.get("RUN_DMCP_PATH", "~/rpg/run-dmcp"),
+        help="Path to the run-dmcp checkout (default: $RUN_DMCP_PATH or ~/rpg/run-dmcp)"
     )
     parser.add_argument(
         "--setting",

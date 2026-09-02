@@ -160,7 +160,7 @@ npm run build
 Then load your game:
 
 ```bash
-python load_to_run_dmcp.py rooms_fixed.json --server-path ~/run-dmcp
+python load_to_run_dmcp.py rooms_fixed.json --server-path ~/rpg/run-dmcp
 ```
 
 The loader speaks MCP over stdio, creates every entity, and prints a game ID
@@ -177,7 +177,7 @@ Notes: 28 (90 beats)
 Web UI: http://localhost:3456/games/ddad8ad6-b9b2-4543-846c-96e868a4248d
 ```
 
-`--server-path` defaults to `$RUN_DMCP_PATH`, then `~/run-dmcp`.
+`--server-path` defaults to `$RUN_DMCP_PATH`, then `~/rpg/run-dmcp`.
 
 To play, point an MCP client at run-dmcp and use `load_game <game-id>`. For
 Claude Desktop, add to `claude_desktop_config.json`:
@@ -390,7 +390,7 @@ use its default database.
 run-dmcp needs building before first use:
 
 ```bash
-cd ~/run-dmcp && npm ci && cd client && npm ci && cd ..
+cd ~/rpg/run-dmcp && npm ci && cd client && npm ci && cd ..
 npm run build
 ```
 
