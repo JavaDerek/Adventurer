@@ -6,6 +6,7 @@ import logging
 
 # Import the functions we want to test
 import sys
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -835,8 +836,8 @@ class TestServerEnvironment:
     async def test_server_params_forward_environment(self, tmp_path, monkeypatch):
         """DMCP_DB_PATH must reach the server, or it writes to the wrong database."""
         server_root = tmp_path / "run-dmcp"
-        (server_root / "dist").mkdir(parents=True)
-        (server_root / "dist" / "index.js").write_text("// stub")
+        (server_root / "dist" / "bin").mkdir(parents=True)
+        (server_root / "dist" / "bin" / "run-dmcp.js").write_text("// stub")
 
         game_file = tmp_path / "game.json"
         game_file.write_text(json.dumps({"title": "T", "rooms": []}))
@@ -880,6 +881,90 @@ class TestServerEnvironment:
         env = captured["params"].env
         assert env is not None, "StdioServerParameters.env must be set"
         assert env["DMCP_DB_PATH"] == "/tmp/scratch-games.db"
+
+
+class TestServerEntryPoint:
+    """The library entry exports; only the bin entry serves.
+
+    run-dmcp split those apart on 2026-08-29 ("importing the package started an
+    HTTP server and squatted a port"), and that commit says plainly: a config
+    pointing at ``dist/index.js`` now starts nothing. Spawning it gives a child
+    that exits immediately and an ``MCPError: Connection closed`` out of
+    ``session.initialize()`` -- before a single tool call, which is why no
+    amount of tool-level mocking sees it.
+    """
+
+    @staticmethod
+    def _checkout(root, *, bin_entry=True, lib_entry=True):
+        """Build a run-dmcp checkout with either entry present, or one alone."""
+        (root / "dist" / "bin").mkdir(parents=True)
+        if bin_entry:
+            (root / "dist" / "bin" / "run-dmcp.js").write_text("// stub")
+        if lib_entry:
+            (root / "dist" / "index.js").write_text("// stub")
+        return root
+
+    @pytest.mark.asyncio
+    async def test_spawns_the_executable_entry(self, tmp_path):
+        """The child must be dist/bin/run-dmcp.js -- the only entry that serves."""
+        server_root = self._checkout(tmp_path / "run-dmcp")
+
+        game_file = tmp_path / "game.json"
+        game_file.write_text(json.dumps({"title": "T", "rooms": []}))
+
+        captured = {}
+
+        class FakeStdioClient:
+            def __init__(self, params):
+                captured["params"] = params
+
+            async def __aenter__(self):
+                return (None, None)
+
+            async def __aexit__(self, *exc):
+                return False
+
+        class FakeSession:
+            def __init__(self, *a):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            async def initialize(self):
+                return None
+
+        with patch("mcp.client.stdio.stdio_client", FakeStdioClient), \
+             patch("mcp.ClientSession", FakeSession), \
+             patch("load_to_run_dmcp.load_game_with_session",
+                   AsyncMock(return_value={"game_id": "g"})):
+            await load_game_to_run_dmcp(
+                json_path=str(game_file),
+                server_path=str(server_root),
+            )
+
+        spawned = Path(captured["params"].args[0])
+        assert spawned.parts[-2:] == ("bin", "run-dmcp.js"), (
+            f"spawned {spawned}; dist/index.js is the library entry and starts nothing"
+        )
+
+    @pytest.mark.asyncio
+    async def test_library_only_checkout_is_not_found(self, tmp_path):
+        """A checkout with no bin entry must fail loudly, not spawn a silent exit."""
+        server_root = self._checkout(tmp_path / "run-dmcp", bin_entry=False)
+
+        game_file = tmp_path / "game.json"
+        game_file.write_text(json.dumps({"title": "T", "rooms": []}))
+
+        with pytest.raises(SystemExit) as exc_info:
+            await load_game_to_run_dmcp(
+                json_path=str(game_file),
+                server_path=str(server_root),
+            )
+        assert exc_info.value.code == 1
 
 
 class TestSchemaDriftTolerance:

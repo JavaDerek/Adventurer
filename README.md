@@ -187,7 +187,7 @@ Claude Desktop, add to `claude_desktop_config.json`:
   "mcpServers": {
     "run-dmcp": {
       "command": "node",
-      "args": ["/absolute/path/to/run-dmcp/dist/index.js"]
+      "args": ["/absolute/path/to/run-dmcp/dist/bin/run-dmcp.js"]
     }
   }
 }
@@ -385,7 +385,7 @@ The MCP SDK launches the server with a scrubbed environment. The loader forwards
 `env=dict(os.environ)` to `StdioServerParameters` or the server will silently
 use its default database.
 
-### "run-dmcp not found at .../dist/index.js"
+### "run-dmcp not found at .../dist/bin/run-dmcp.js"
 
 run-dmcp needs building before first use:
 

@@ -118,6 +118,25 @@ the private name, so after the SDK upgrade the patch became a no-op that
 silently added an unused attribute. The loader now patches whichever name
 exists and logs a warning if neither does.
 
+### The server entry is `dist/bin/run-dmcp.js`, not `dist/index.js`
+
+run-dmcp split library from application on 2026-08-29 (commit `3232645`,
+"importing the package started an HTTP server and squatted a port"). Before it,
+`dist/index.js` brought up the schema, bound the web UI port and connected a
+stdio transport as a side effect of being imported, so spawning it worked.
+After it, that file is exports and nothing else — the engine's own commit says
+"a config pointing at `dist/index.js` now starts nothing, which is the point."
+
+The failure is not subtle once seen and invisible until then: node runs the
+file, it exits, and `session.initialize()` raises `MCPError: Connection closed`
+before any tool is called. **No tool-level mock can catch it**, because the
+handshake the mock replaces is the thing that breaks — Adventurer's suite stayed
+green through six days of it, and its one spawn test built a
+`dist/index.js` fixture and asserted around it.
+`tests/test_loader.py::TestServerEntryPoint` now pins the executable entry, and
+a checkout carrying only the library entry is reported not-found rather than
+spawned.
+
 ### The child process gets a scrubbed environment
 
 `stdio_client` does **not** inherit the parent environment unless you pass one.

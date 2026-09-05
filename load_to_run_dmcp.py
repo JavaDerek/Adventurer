@@ -398,10 +398,17 @@ async def load_game_to_run_dmcp(
     print(f"Loading: {game_data.get('title', 'Untitled')}")
     print(f"Rooms: {len(game_data.get('rooms', []))}")
 
-    # Resolve run-dmcp path
-    server_index = Path(server_path).expanduser() / "dist" / "index.js"
-    if not server_index.exists():
-        print(f"Error: run-dmcp not found at {server_index}")
+    # Resolve run-dmcp's executable entry.
+    #
+    # dist/bin/run-dmcp.js, NOT dist/index.js. run-dmcp split library from
+    # application on 2026-08-29 ("importing the package started an HTTP server
+    # and squatted a port"): dist/index.js is exports and nothing else, and its
+    # own commit message says a config pointing at it now starts nothing. Node
+    # runs it, it exits, and the first thing we do -- session.initialize() --
+    # dies with "Connection closed" before any tool is called.
+    server_entry = Path(server_path).expanduser() / "dist" / "bin" / "run-dmcp.js"
+    if not server_entry.exists():
+        print(f"Error: run-dmcp not found at {server_entry}")
         print("Install it: git clone https://github.com/JavaDerek/run-dmcp.git")
         print("Then: cd run-dmcp && npm ci && cd client && npm ci && cd .. && npm run build")
         sys.exit(1)
@@ -414,7 +421,7 @@ async def load_game_to_run_dmcp(
     # default database instead of the one the operator asked for.
     server_params = StdioServerParameters(
         command="node",
-        args=[str(server_index)],
+        args=[str(server_entry)],
         env=dict(os.environ),
     )
 
