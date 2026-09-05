@@ -15,6 +15,7 @@ sys.path.insert(0, '.')
 from load_to_run_dmcp import (
     DESCRIPTION_MAX,
     NAME_MAX,
+    _declared_bin,
     _disable_structured_output_validation,
     call_tool,
     exit_direction,
@@ -883,32 +884,73 @@ class TestServerEnvironment:
         assert env["DMCP_DB_PATH"] == "/tmp/scratch-games.db"
 
 
-class TestServerEntryPoint:
-    """The library entry exports; only the bin entry serves.
+class TestDeclaredBin:
+    """Reading npm's `bin` field, which has two legal shapes and one trap."""
 
-    run-dmcp split those apart on 2026-08-29 ("importing the package started an
-    HTTP server and squatted a port"), and that commit says plainly: a config
-    pointing at ``dist/index.js`` now starts nothing. Spawning it gives a child
-    that exits immediately and an ``MCPError: Connection closed`` out of
-    ``session.initialize()`` -- before a single tool call, which is why no
-    amount of tool-level mocking sees it.
+    def test_string_shorthand(self):
+        assert _declared_bin("dist/bin/run-dmcp.js") == "dist/bin/run-dmcp.js"
+
+    def test_named_for_the_package(self):
+        assert _declared_bin({"run-dmcp": "dist/bin/run-dmcp.js"}) == "dist/bin/run-dmcp.js"
+
+    def test_sole_entry_under_any_name(self):
+        assert _declared_bin({"engine": "dist/bin/engine.js"}) == "dist/bin/engine.js"
+
+    def test_several_executables_prefers_the_package_name(self):
+        assert _declared_bin(
+            {"helper": "dist/bin/helper.js", "run-dmcp": "dist/bin/run-dmcp.js"}
+        ) == "dist/bin/run-dmcp.js"
+
+    def test_several_executables_none_named_for_the_package(self):
+        """Guessing which of several is the server is exactly what not to do."""
+        assert _declared_bin({"a": "dist/bin/a.js", "b": "dist/bin/b.js"}) is None
+
+    def test_missing(self):
+        assert _declared_bin(None) is None
+
+    def test_wrong_type(self):
+        assert _declared_bin(["dist/bin/run-dmcp.js"]) is None
+        assert _declared_bin({"run-dmcp": ["dist/bin/run-dmcp.js"]}) is None
+
+
+class TestServerEntryPoint:
+    """The engine declares its own executable; we read it rather than assume it.
+
+    run-dmcp split library from application on 2026-08-29 ("importing the
+    package started an HTTP server and squatted a port"), and that commit says
+    plainly: a config pointing at ``dist/index.js`` now starts nothing. Spawning
+    it gives a child that exits immediately and an ``MCPError: Connection
+    closed`` out of ``session.initialize()`` -- before a single tool call, which
+    is why no amount of tool-level mocking sees it.
+
+    A hardcoded ``dist/bin/run-dmcp.js`` would only pin today's answer: it
+    catches an edit back toward the library entry, which nobody will make, and
+    sails straight through the engine moving its executable again, which is the
+    failure that actually happened. ``package.json`` names both halves --
+    ``bin`` is the application, ``main`` is the library -- and it sits in the
+    checkout we were already handed.
     """
 
     @staticmethod
-    def _checkout(root, *, bin_entry=True, lib_entry=True):
-        """Build a run-dmcp checkout with either entry present, or one alone."""
+    def _checkout(root, *, declares="dist/bin/run-dmcp.js", entry="dist/bin/run-dmcp.js",
+                  package_json=True, lib_entry=True):
+        """A run-dmcp checkout: what package.json claims, and what is on disk."""
         (root / "dist" / "bin").mkdir(parents=True)
-        if bin_entry:
-            (root / "dist" / "bin" / "run-dmcp.js").write_text("// stub")
+        if entry:
+            (root / entry).parent.mkdir(parents=True, exist_ok=True)
+            (root / entry).write_text("// stub")
         if lib_entry:
             (root / "dist" / "index.js").write_text("// stub")
+        if package_json:
+            manifest = {"name": "run-dmcp", "main": "dist/index.js"}
+            if declares is not None:
+                manifest["bin"] = declares
+            (root / "package.json").write_text(json.dumps(manifest))
         return root
 
-    @pytest.mark.asyncio
-    async def test_spawns_the_executable_entry(self, tmp_path):
-        """The child must be dist/bin/run-dmcp.js -- the only entry that serves."""
-        server_root = self._checkout(tmp_path / "run-dmcp")
-
+    @staticmethod
+    async def _spawn(server_root, tmp_path):
+        """Run a load against fake transport, and return the spawned argv path."""
         game_file = tmp_path / "game.json"
         game_file.write_text(json.dumps({"title": "T", "rooms": []}))
 
@@ -946,15 +988,86 @@ class TestServerEntryPoint:
                 server_path=str(server_root),
             )
 
-        spawned = Path(captured["params"].args[0])
+        return Path(captured["params"].args[0])
+
+    @pytest.mark.asyncio
+    async def test_spawns_the_declared_executable(self, tmp_path):
+        """The engine's `bin` is the answer, not a path we remember."""
+        server_root = self._checkout(tmp_path / "run-dmcp")
+
+        spawned = await self._spawn(server_root, tmp_path)
+
         assert spawned.parts[-2:] == ("bin", "run-dmcp.js"), (
             f"spawned {spawned}; dist/index.js is the library entry and starts nothing"
         )
 
     @pytest.mark.asyncio
-    async def test_library_only_checkout_is_not_found(self, tmp_path):
-        """A checkout with no bin entry must fail loudly, not spawn a silent exit."""
-        server_root = self._checkout(tmp_path / "run-dmcp", bin_entry=False)
+    async def test_follows_the_declaration_when_it_moves(self, tmp_path):
+        """This is the test a hardcoded path cannot be: the engine renames its bin."""
+        server_root = self._checkout(
+            tmp_path / "run-dmcp",
+            declares={"run-dmcp": "dist/bin/engine.js"},
+            entry="dist/bin/engine.js",
+        )
+
+        spawned = await self._spawn(server_root, tmp_path)
+
+        assert spawned.name == "engine.js", f"spawned {spawned}; package.json says engine.js"
+
+    @pytest.mark.asyncio
+    async def test_accepts_a_string_bin(self, tmp_path):
+        """npm allows `"bin": "path"` as shorthand for a single executable."""
+        server_root = self._checkout(
+            tmp_path / "run-dmcp",
+            declares="dist/bin/solo.js",
+            entry="dist/bin/solo.js",
+        )
+
+        spawned = await self._spawn(server_root, tmp_path)
+
+        assert spawned.name == "solo.js"
+
+    @pytest.mark.asyncio
+    async def test_never_spawns_the_library_entry(self, tmp_path):
+        """`main` is not an executable, whatever a malformed manifest implies."""
+        server_root = self._checkout(
+            tmp_path / "run-dmcp",
+            declares={"run-dmcp": "dist/index.js"},
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            await self._spawn(server_root, tmp_path)
+        assert exc_info.value.code == 1
+
+    @pytest.mark.asyncio
+    async def test_falls_back_loudly_without_a_manifest(self, tmp_path, caplog):
+        """An unreadable manifest degrades to the known path, saying so."""
+        server_root = self._checkout(tmp_path / "run-dmcp", package_json=False)
+
+        with caplog.at_level(logging.WARNING):
+            spawned = await self._spawn(server_root, tmp_path)
+
+        assert spawned.parts[-2:] == ("bin", "run-dmcp.js")
+        assert "package.json" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_falls_back_loudly_on_an_ambiguous_manifest(self, tmp_path, caplog):
+        """Several executables and none named for the package: do not guess."""
+        server_root = self._checkout(
+            tmp_path / "run-dmcp",
+            declares={"a": "dist/bin/a.js", "b": "dist/bin/b.js"},
+        )
+
+        with caplog.at_level(logging.WARNING):
+            spawned = await self._spawn(server_root, tmp_path)
+
+        assert spawned.parts[-2:] == ("bin", "run-dmcp.js")
+        assert "bin" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_declared_but_absent_is_not_found(self, tmp_path):
+        """A checkout that was never built must fail loudly, not spawn a silent exit."""
+        server_root = self._checkout(tmp_path / "run-dmcp", entry=None)
 
         game_file = tmp_path / "game.json"
         game_file.write_text(json.dumps({"title": "T", "rooms": []}))

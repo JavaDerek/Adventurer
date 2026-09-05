@@ -118,7 +118,7 @@ the private name, so after the SDK upgrade the patch became a no-op that
 silently added an unused attribute. The loader now patches whichever name
 exists and logs a warning if neither does.
 
-### The server entry is `dist/bin/run-dmcp.js`, not `dist/index.js`
+### The server entry is whatever `package.json` declares
 
 run-dmcp split library from application on 2026-08-29 (commit `3232645`,
 "importing the package started an HTTP server and squatted a port"). Before it,
@@ -127,15 +127,34 @@ stdio transport as a side effect of being imported, so spawning it worked.
 After it, that file is exports and nothing else — the engine's own commit says
 "a config pointing at `dist/index.js` now starts nothing, which is the point."
 
-The failure is not subtle once seen and invisible until then: node runs the
-file, it exits, and `session.initialize()` raises `MCPError: Connection closed`
+The failure is invisible until seen and then unmistakable: node runs the file,
+it exits, and `session.initialize()` raises `MCPError: Connection closed`
 before any tool is called. **No tool-level mock can catch it**, because the
-handshake the mock replaces is the thing that breaks — Adventurer's suite stayed
-green through six days of it, and its one spawn test built a
-`dist/index.js` fixture and asserted around it.
-`tests/test_loader.py::TestServerEntryPoint` now pins the executable entry, and
-a checkout carrying only the library entry is reported not-found rather than
-spawned.
+handshake the mock stands in for is the thing that breaks — this loader spawned
+the library entry for six days and two engine releases with a green suite, and
+its one spawn test built a `dist/index.js` fixture and asserted around it.
+
+So the loader does not carry the path. `_resolve_server_entry()` reads the
+engine's own `package.json`, which ships in every checkout and names both
+halves:
+
+| field | value | what it is |
+|---|---|---|
+| `bin` | `dist/bin/run-dmcp.js` | the application — brings up the schema, binds a port, connects a transport |
+| `main` | `dist/index.js` | the library — exports, and starts nothing |
+
+`bin` may be a string or a name → path map (`run-dmcp` wins if several are
+declared; several with no such name is ambiguous, and we fall back rather than
+guess). A manifest naming one file as both `bin` and `main` is refused
+outright. Every fallback is logged and printed, because it means we are
+assuming a path the engine did not confirm.
+
+This is deliberately not a hardcoded `dist/bin/run-dmcp.js` guarded by a test.
+That would pin today's answer: it catches an edit back toward the library
+entry, which nobody will make, and sails straight through the engine moving its
+executable again — which is the failure that actually happened.
+`tests/test_loader.py::TestServerEntryPoint` therefore asserts that we spawn
+what the manifest declares, including when the declaration moves.
 
 ### The child process gets a scrubbed environment
 

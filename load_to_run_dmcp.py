@@ -373,6 +373,90 @@ def _read_game_json(json_path: str) -> dict:
         return json.load(f)
 
 
+# run-dmcp's executable entry, if its package.json cannot be read. Only a
+# fallback: the declaration is the authority, and see _resolve_server_entry.
+DEFAULT_SERVER_ENTRY = "dist/bin/run-dmcp.js"
+
+
+def _declared_bin(bin_field: Any) -> str | None:
+    """The path npm would install as an executable, from a `bin` field.
+
+    npm allows a bare string for a single executable, or a name -> path map.
+    A map with several entries is only unambiguous if one is named for the
+    package itself; anything else is a manifest we should not guess about.
+    """
+    if isinstance(bin_field, str):
+        return bin_field
+    if isinstance(bin_field, dict):
+        if isinstance(bin_field.get("run-dmcp"), str):
+            return bin_field["run-dmcp"]
+        if len(bin_field) == 1:
+            only = next(iter(bin_field.values()))
+            if isinstance(only, str):
+                return only
+    return None
+
+
+def _resolve_server_entry(server_path: str) -> Path:
+    """Resolve run-dmcp's executable from the engine's own declaration.
+
+    NOT a remembered path. run-dmcp split library from application on
+    2026-08-29 (commit 3232645, "importing the package started an HTTP server
+    and squatted a port"): before it, `dist/index.js` bound a port and
+    connected a stdio transport as a side effect of import, so spawning it
+    worked; after it, that file is exports and nothing else. The engine's own
+    commit message says a config pointing at it now starts nothing -- and this
+    loader was such a config for six days, because node runs the file, it
+    exits, and `session.initialize()` dies with "Connection closed" before a
+    single tool call. No mock of a tool can see a handshake that never happens.
+
+    So read `package.json`, which names both halves and ships in every
+    checkout: `bin` is the application, `main` is the library. Hardcoding
+    today's answer would only catch an edit back toward the library entry,
+    which nobody will make, and would sail straight through the engine moving
+    its executable again -- which is the failure that actually happened.
+    """
+    root = Path(server_path).expanduser()
+    manifest_path = root / "package.json"
+
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        logger.warning(
+            "Could not read %s (%s); falling back to %s. If run-dmcp has moved "
+            "its executable, this will fail at session.initialize().",
+            manifest_path, exc, DEFAULT_SERVER_ENTRY,
+        )
+        print(f"Warning: no readable package.json at {manifest_path}; "
+              f"assuming {DEFAULT_SERVER_ENTRY}")
+        return root / DEFAULT_SERVER_ENTRY
+
+    declared = _declared_bin(manifest.get("bin"))
+    if declared is None:
+        logger.warning(
+            "%s declares no unambiguous 'bin'; falling back to %s.",
+            manifest_path, DEFAULT_SERVER_ENTRY,
+        )
+        print(f"Warning: {manifest_path} declares no executable; "
+              f"assuming {DEFAULT_SERVER_ENTRY}")
+        return root / DEFAULT_SERVER_ENTRY
+
+    entry = root / declared
+    library = manifest.get("main")
+    if isinstance(library, str) and (root / library).resolve() == entry.resolve():
+        logger.error(
+            "%s declares the same file as both 'bin' and 'main' (%s). The "
+            "library entry starts no server; spawning it would fail at "
+            "session.initialize() with 'Connection closed'.",
+            manifest_path, declared,
+        )
+        print(f"Error: {manifest_path} names {declared} as both its executable "
+              "and its library entry; the library entry starts nothing.")
+        sys.exit(1)
+
+    return entry
+
+
 async def load_game_to_run_dmcp(
     json_path: str,
     server_path: str,
@@ -398,15 +482,7 @@ async def load_game_to_run_dmcp(
     print(f"Loading: {game_data.get('title', 'Untitled')}")
     print(f"Rooms: {len(game_data.get('rooms', []))}")
 
-    # Resolve run-dmcp's executable entry.
-    #
-    # dist/bin/run-dmcp.js, NOT dist/index.js. run-dmcp split library from
-    # application on 2026-08-29 ("importing the package started an HTTP server
-    # and squatted a port"): dist/index.js is exports and nothing else, and its
-    # own commit message says a config pointing at it now starts nothing. Node
-    # runs it, it exits, and the first thing we do -- session.initialize() --
-    # dies with "Connection closed" before any tool is called.
-    server_entry = Path(server_path).expanduser() / "dist" / "bin" / "run-dmcp.js"
+    server_entry = _resolve_server_entry(server_path)
     if not server_entry.exists():
         print(f"Error: run-dmcp not found at {server_entry}")
         print("Install it: git clone https://github.com/JavaDerek/run-dmcp.git")
