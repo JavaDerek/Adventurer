@@ -131,9 +131,14 @@ values.
 - Every module gets `logger = logging.getLogger(__name__)`.
 - CLI entry points call `logging.basicConfig(..., stream=sys.stderr)` in
   `main()`; keep diagnostics off stdout.
-- Limits mirrored from run-dmcp (`NAME_MAX`, `DESCRIPTION_MAX`, `CONTENT_MAX`)
-  live at the top of `load_to_run_dmcp.py`. If run-dmcp changes them, change
-  them here and in `docs/RUN_DMCP_INTEGRATION.md` in the same commit.
+- **Field limits are read from run-dmcp, never copied.** `FieldLimits` fetches
+  them from `tools/list` at the start of each load; a field the server declares
+  unbounded is sent whole, with one warning, and never given a local default.
+  There used to be three mirrored constants here and a rule to change them "in
+  the same commit" as the engine — an instruction spanning two repositories
+  that nobody could follow. If you need the declarations as data, refresh
+  `tests/fixtures/run_dmcp_tool_schemas.json` with `record_tool_schemas.py`
+  and read the diff.
 - `ruff` has no config here and the repo carries a pre-existing lint backlog in
   the older scripts. Leave files you aren't touching alone; keep files you do
   touch clean.

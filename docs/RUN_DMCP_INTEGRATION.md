@@ -166,15 +166,44 @@ silent and easy to miss, because the load itself succeeds.
 
 ## Field limits
 
-Mirrored from run-dmcp's `src/utils/validation.ts`. Over-long values are
-rejected by the server's zod schemas, which would abort a load partway through,
-so the loader clamps locally (`truncate()`).
+**Read from the server, not copied.** Over-long values are rejected by run-dmcp's
+zod schemas, which would abort a load partway through, so the loader clamps —
+but the numbers are the engine's, fetched at the start of every load.
 
-| Constant | Value | Applies to |
+zod's `.max()` lands in each tool's `input_schema` as `maxLength`, and
+`tools/list` delivers it before the first call. `FieldLimits.from_session()`
+reads them into a `{(tool, field path): maxLength}` map and every write goes
+through `limits.clamp(tool, field, text)`. Field paths are explicit and nested,
+because the fields are: `create_item`'s description is `properties.description`.
+
+These used to be three constants — `NAME_MAX`, `DESCRIPTION_MAX`, `CONTENT_MAX` —
+hand-copied from `src/utils/validation.ts`, with a rule to change them "in the
+same commit" as the engine. That instruction spans two repositories and so could
+not be followed by anyone; drift would have shown up as silently truncated
+content. The engine was publishing the answer the whole time.
+
+**A field the server declares unbounded is not clamped.** The loader warns once
+and sends it whole. Substituting a local number there would keep the deleted
+mirror alive under another name. This is not hypothetical: `connect_locations`
+declared no bound on any of its five strings until run-dmcp 0.5.0, while this
+loader clamped its `toward {destination}` direction to 200 — a number borrowed
+from a *different* tool's declaration. 0.5.0 bounds them at 200, and that
+arrived here with no commit on this side, which is the whole benefit of reading.
+
+The current declarations, as recorded in
+`tests/fixtures/run_dmcp_tool_schemas.json`:
+
+| Tool | Field | `maxLength` |
 |---|---|---|
-| `NAME_MAX` | 200 | game/location/character/item names, note titles, exit directions |
-| `DESCRIPTION_MAX` | 5000 | descriptions, atmosphere |
-| `CONTENT_MAX` | 50000 | note content |
+| `create_game` | `name` / `setting` / `style` | 200 / 5000 / 200 |
+| `create_location` | `name` / `description` / `properties.atmosphere` | 200 / 5000 / 5000 |
+| `connect_locations` | `fromDirection` / `toDirection` | 200 / 200 |
+| `create_character` | `name` | 200 |
+| `create_item` | `name` / `properties.description` | 200 / 5000 |
+| `create_note` | `title` / `content` | 200 / 50000 |
+
+That table is documentation, not a source of truth — the loader never reads it.
+Refresh the fixture with `record_tool_schemas.py` and the diff shows what moved.
 
 Real extractions sit well inside these (the largest observed room name is 92
 characters, the largest description 613), so clamping is a guard against odd

@@ -7,14 +7,14 @@ import logging
 # Import the functions we want to test
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 sys.path.insert(0, '.')
 from load_to_run_dmcp import (
-    DESCRIPTION_MAX,
-    NAME_MAX,
+    FieldLimits,
     _declared_bin,
     _disable_structured_output_validation,
     call_tool,
@@ -25,10 +25,54 @@ from load_to_run_dmcp import (
     load_game_to_run_dmcp,
     load_game_with_session,
     normalize_character_name,
+    declared_string_limits,
     reset_schema_drift_state,
     schema_drift_detected,
     truncate,
 )
+
+FIXTURES = Path(__file__).parent / "fixtures"
+RECORDED_SCHEMAS = FIXTURES / "run_dmcp_tool_schemas.json"
+
+
+def recorded_tools() -> dict:
+    """The engine's declared input schemas, as recorded from a live server.
+
+    The only copy of run-dmcp's contract in this repository, and deliberately
+    not hand-written: a fixture we composed ourselves would assert what we
+    BELIEVE the engine declares, which is the mirrored constant we just
+    deleted wearing a fixture's clothes. Refresh with record_tool_schemas.py
+    and read the diff.
+    """
+    return json.loads(RECORDED_SCHEMAS.read_text())["tools"]
+
+
+def _tools_result(schemas: dict):
+    """A `list_tools()` result carrying `schemas`, shaped like the SDK's.
+
+    SimpleNamespace rather than MagicMock: `name` is reserved on a Mock, and a
+    tool whose `.name` is a mock repr instead of its name is exactly the kind
+    of stand-in that passes a test while proving nothing.
+    """
+    tools = [
+        SimpleNamespace(name=name, input_schema=schema)
+        for name, schema in schemas.items()
+    ]
+    return SimpleNamespace(tools=tools)
+
+
+def _mock_session(schemas: dict | None = None):
+    """A mocked MCP session that serves the recorded schemas from `list_tools`.
+
+    Every loader test goes through this: the loader reads its field limits from
+    what the server declares, so a session that cannot answer `tools/list` is
+    not a stand-in for a server -- it is a different server.
+    """
+    session = AsyncMock()
+    session.list_tools = AsyncMock(
+        return_value=_tools_result(recorded_tools() if schemas is None else schemas)
+    )
+    return session
 
 
 class TestNormalizeCharacterName:
@@ -237,7 +281,7 @@ class TestLoadGameWithSession:
     @pytest.mark.asyncio
     async def test_creates_game_with_title(self, simple_game_data):
         """Should create game with the correct title."""
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("game-123"))
 
         await load_game_with_session(mock_session, simple_game_data)
@@ -250,7 +294,7 @@ class TestLoadGameWithSession:
     @pytest.mark.asyncio
     async def test_creates_locations_for_each_room(self, two_room_game_data):
         """Should create a location for each room."""
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("id-123"))
 
         await load_game_with_session(mock_session, two_room_game_data)
@@ -263,7 +307,7 @@ class TestLoadGameWithSession:
     @pytest.mark.asyncio
     async def test_connects_locations_based_on_exits(self, two_room_game_data):
         """Should connect locations based on exit definitions."""
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         # Return different IDs for game, locations
         mock_session.call_tool = AsyncMock(side_effect=[
             self._make_mock_result("game-1"),      # create_game
@@ -307,7 +351,7 @@ class TestLoadGameWithSession:
             ]
         }
 
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("id-123"))
 
         result = await load_game_with_session(mock_session, game_data)
@@ -320,7 +364,7 @@ class TestLoadGameWithSession:
     @pytest.mark.asyncio
     async def test_creates_items_at_locations(self, simple_game_data):
         """Should create items at their locations."""
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("id-123"))
 
         result = await load_game_with_session(mock_session, simple_game_data)
@@ -334,7 +378,7 @@ class TestLoadGameWithSession:
     @pytest.mark.asyncio
     async def test_records_beats_as_notes(self, simple_game_data):
         """Source beats become GM notes, not played history."""
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("id-123"))
 
         result = await load_game_with_session(mock_session, simple_game_data)
@@ -366,7 +410,7 @@ class TestLoadGameWithSession:
                 "events": ["First", "Second", "Third"],
             }],
         }
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("id-123"))
 
         result = await load_game_with_session(mock_session, game_data)
@@ -383,7 +427,7 @@ class TestLoadGameWithSession:
     @pytest.mark.asyncio
     async def test_atmosphere_uses_structured_property(self, simple_game_data):
         """Atmosphere belongs in properties.atmosphere, which run-dmcp stores."""
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("id-123"))
 
         await load_game_with_session(mock_session, simple_game_data)
@@ -402,7 +446,7 @@ class TestLoadGameWithSession:
             "title": "No Atmosphere",
             "rooms": [{"name": "Room", "description": "A room.", "exits": []}],
         }
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("id-123"))
 
         await load_game_with_session(mock_session, game_data)
@@ -414,7 +458,7 @@ class TestLoadGameWithSession:
     @pytest.mark.asyncio
     async def test_returns_summary_dict(self, simple_game_data):
         """Should return summary with all IDs and counts."""
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("test-id"))
 
         result = await load_game_with_session(mock_session, simple_game_data)
@@ -445,7 +489,7 @@ class TestLoadGameWithSession:
             ]
         }
 
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("id-123"))
 
         result = await load_game_with_session(mock_session, game_data)
@@ -469,7 +513,7 @@ class TestLoadGameWithSession:
             ]
         }
 
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         # Fail on second item
         mock_session.call_tool = AsyncMock(side_effect=[
             self._make_mock_result("game-1"),    # create_game
@@ -487,7 +531,7 @@ class TestLoadGameWithSession:
     @pytest.mark.asyncio
     async def test_uses_custom_setting_and_style(self, simple_game_data):
         """Should pass custom setting and style to create_game."""
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("game-123"))
 
         await load_game_with_session(
@@ -543,17 +587,152 @@ class TestExitDirection:
     """run-dmcp keys exits by direction, so directions must be unique per room."""
 
     def test_direction_names_the_destination(self):
-        assert exit_direction("Haymarket") == "toward Haymarket"
+        assert exit_direction("Haymarket", 200) == "toward Haymarket"
 
     def test_directions_differ_per_destination(self):
         """Two exits from one room must not collide on direction."""
         # connectLocations() drops any existing exit sharing a direction, so a
         # constant string here would leave every room with exactly one exit.
-        assert exit_direction("Haymarket") != exit_direction("Police Station")
+        assert exit_direction("Haymarket", 200) != exit_direction("Police Station", 200)
 
-    def test_direction_respects_name_limit(self):
-        long_name = "x" * 400
-        assert len(exit_direction(long_name)) <= NAME_MAX
+    def test_direction_respects_the_limit_it_is_given(self):
+        assert len(exit_direction("x" * 400, 200)) == 200
+
+    def test_an_unbounded_direction_is_left_whole(self):
+        """The limit comes from the server. If it declares none, we invent none.
+
+        run-dmcp declared `connect_locations` with no bound on any of its five
+        strings until 0.5.0, and this loader clamped the direction to 200
+        anyway -- a number copied from a DIFFERENT tool's declaration. Reading
+        the schema means following it, including when it says nothing.
+        """
+        assert len(exit_direction("x" * 400, None)) == len("toward " + "x" * 400)
+
+
+class TestDeclaredStringLimits:
+    """Reading the limits out of what the server declares."""
+
+    def test_reads_a_top_level_string(self):
+        schemas = {"create_game": {"type": "object", "properties": {
+            "name": {"type": "string", "maxLength": 200},
+        }}}
+        assert declared_string_limits(schemas) == {("create_game", "name"): 200}
+
+    def test_reads_a_nested_string_by_dotted_path(self):
+        """create_item's description is properties.description, not description."""
+        schemas = {"create_item": {"type": "object", "properties": {
+            "properties": {"type": "object", "properties": {
+                "description": {"type": "string", "maxLength": 5000},
+            }},
+        }}}
+        assert declared_string_limits(schemas) == {("create_item", "properties.description"): 5000}
+
+    def test_reads_array_items_and_record_values(self):
+        schemas = {"t": {"type": "object", "properties": {
+            "tags": {"type": "array", "items": {"type": "string", "maxLength": 100}},
+            "meta": {"type": "object", "additionalProperties": {"type": "string", "maxLength": 50}},
+        }}}
+        assert declared_string_limits(schemas) == {
+            ("t", "tags[]"): 100,
+            ("t", "meta.*"): 50,
+        }
+
+    def test_an_unbounded_string_is_absent_rather_than_defaulted(self):
+        schemas = {"t": {"type": "object", "properties": {"name": {"type": "string"}}}}
+        assert declared_string_limits(schemas) == {}
+
+    def test_ignores_non_strings(self):
+        schemas = {"t": {"type": "object", "properties": {
+            "count": {"type": "number"},
+            "flag": {"type": "boolean"},
+        }}}
+        assert declared_string_limits(schemas) == {}
+
+    def test_survives_a_schema_that_is_not_an_object(self):
+        assert declared_string_limits({"t": None}) == {}
+        assert declared_string_limits({"t": {}}) == {}
+
+
+class TestFieldLimits:
+    """Clamping to what the server said, and saying so when it said nothing."""
+
+    def test_clamps_to_the_declared_maximum(self):
+        limits = FieldLimits({("create_location", "name"): 10})
+        assert limits.clamp("create_location", "name", "x" * 40) == "x" * 10
+
+    def test_leaves_a_short_value_alone(self):
+        limits = FieldLimits({("create_location", "name"): 10})
+        assert limits.clamp("create_location", "name", "short") == "short"
+
+    def test_none_becomes_empty(self):
+        limits = FieldLimits({("create_location", "name"): 10})
+        assert limits.clamp("create_location", "name", None) == ""
+
+    def test_an_undeclared_field_is_not_clamped(self):
+        """No local floor. Substituting one keeps the copy alive by other means."""
+        limits = FieldLimits({})
+        assert limits.clamp("connect_locations", "fromDirection", "x" * 400) == "x" * 400
+
+    def test_warns_once_per_undeclared_field(self, caplog):
+        limits = FieldLimits({})
+        with caplog.at_level(logging.WARNING):
+            for _ in range(5):
+                limits.clamp("connect_locations", "fromDirection", "value")
+                limits.clamp("connect_locations", "toDirection", "value")
+
+        warnings = [r for r in caplog.records if "declares no maximum" in r.message]
+        assert len(warnings) == 2
+        assert "fromDirection" in warnings[0].getMessage()
+        assert "toDirection" in warnings[1].getMessage()
+
+    def test_max_for_reports_the_declaration(self):
+        limits = FieldLimits({("create_note", "content"): 50000})
+        assert limits.max_for("create_note", "content") == 50000
+        assert limits.max_for("create_note", "title") is None
+
+    @pytest.mark.asyncio
+    async def test_reads_them_from_a_session(self):
+        session = _mock_session()
+        limits = await FieldLimits.from_session(session)
+
+        session.list_tools.assert_awaited_once()
+        assert limits.max_for("create_location", "name") == 200
+        assert limits.max_for("create_item", "properties.description") == 5000
+
+
+class TestRecordedSchemasFixture:
+    """The fixture is evidence about run-dmcp, so it has to stay true of it."""
+
+    def test_covers_every_tool_the_loader_calls(self, ):
+        """Fails when the loader starts calling a tool the fixture never recorded.
+
+        Derived by running a load, not by keeping a second list of tool names
+        in step by hand -- that would be the same copy this change deletes.
+        """
+        session = _mock_session()
+        result = MagicMock()
+        result.content = [MagicMock(text=json.dumps({"id": "id-1"}))]
+        session.call_tool = AsyncMock(return_value=result)
+
+        game_data = {"title": "T", "rooms": [
+            {"name": "A", "description": "d", "exits": ["B"], "items": ["i"],
+             "characters": ["C"], "events": ["e"], "atmosphere": "calm"},
+            {"name": "B", "description": "d", "exits": ["A"], "items": [],
+             "characters": [], "events": []},
+        ]}
+        asyncio.run(load_game_with_session(session, game_data))
+
+        called = {c[0][0] for c in session.call_tool.call_args_list}
+        recorded = set(recorded_tools())
+        assert called <= recorded, (
+            f"the loader calls {sorted(called - recorded)}, which "
+            f"{RECORDED_SCHEMAS.name} does not record -- refresh it with "
+            "record_tool_schemas.py"
+        )
+
+    def test_records_which_engine_it_came_from(self):
+        meta = json.loads(RECORDED_SCHEMAS.read_text())["_recorded"]
+        assert meta["server"] and meta["version"] and meta["recorded_on"]
 
 
 class TestTruncate:
@@ -614,7 +793,7 @@ class TestRunDmcpToolContract:
     @pytest.mark.asyncio
     async def test_connect_uses_run_dmcp_parameter_names(self, two_room_game_data):
         """fromId/toId were DMCP's names; run-dmcp wants from/toLocationId."""
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(side_effect=[
             self._make_mock_result("game-1"),
             self._make_mock_result("loc-start"),
@@ -638,7 +817,7 @@ class TestRunDmcpToolContract:
     @pytest.mark.asyncio
     async def test_connect_is_not_bidirectional(self, two_room_game_data):
         """bidirectional defaults to true upstream; the JSON already lists both sides."""
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("id-1"))
 
         await load_game_with_session(mock_session, two_room_game_data)
@@ -659,7 +838,7 @@ class TestRunDmcpToolContract:
                 {"name": "B", "description": "b", "exits": []},
             ],
         }
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("id-1"))
 
         result = await load_game_with_session(mock_session, game_data)
@@ -680,7 +859,7 @@ class TestRunDmcpToolContract:
                 {"name": "B", "description": "b", "exits": []},
             ],
         }
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("id-1"))
 
         result = await load_game_with_session(mock_session, game_data)
@@ -697,7 +876,7 @@ class TestRunDmcpToolContract:
             "title": "Self",
             "rooms": [{"name": "A", "description": "a", "exits": ["A"]}],
         }
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("id-1"))
 
         result = await load_game_with_session(mock_session, game_data)
@@ -713,7 +892,7 @@ class TestRunDmcpToolContract:
             "title": "Items",
             "rooms": [{"name": "Room", "description": "r", "exits": [], "items": ["key"]}],
         }
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("loc-1"))
 
         await load_game_with_session(mock_session, game_data)
@@ -737,16 +916,82 @@ class TestRunDmcpToolContract:
                 "exits": [],
             }],
         }
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("id-1"))
 
         await load_game_with_session(mock_session, game_data)
 
+        # The numbers are read off the recorded schemas, not written here --
+        # asserting against a literal 200 would be the deleted mirror, moved
+        # into the test.
+        declared = declared_string_limits(recorded_tools())
         calls = mock_session.call_tool.call_args_list
-        assert len(calls[0][0][1]["name"]) <= NAME_MAX
+        assert len(calls[0][0][1]["name"]) == declared[("create_game", "name")]
         location = next(c for c in calls if c[0][0] == "create_location")[0][1]
-        assert len(location["name"]) <= NAME_MAX
-        assert len(location["description"]) <= DESCRIPTION_MAX
+        assert len(location["name"]) == declared[("create_location", "name")]
+        assert len(location["description"]) == declared[("create_location", "description")]
+
+    @pytest.mark.asyncio
+    async def test_follows_a_limit_it_has_never_seen(self):
+        """The clamp is whatever the server declares -- not a number we know.
+
+        This is the whole point of reading rather than copying, so it is
+        tested with a limit no run-dmcp has ever published. A loader that
+        still held its own NAME_MAX would sail through every other test here
+        and fail this one.
+        """
+        schemas = {
+            "create_game": {"type": "object", "properties": {
+                "name": {"type": "string", "maxLength": 12},
+                "setting": {"type": "string", "maxLength": 5000},
+                "style": {"type": "string", "maxLength": 200},
+            }},
+            "create_location": {"type": "object", "properties": {
+                "gameId": {"type": "string", "maxLength": 100},
+                "name": {"type": "string", "maxLength": 7},
+                "description": {"type": "string", "maxLength": 9},
+            }},
+        }
+        mock_session = _mock_session(schemas)
+        mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("id-1"))
+
+        await load_game_with_session(mock_session, {
+            "title": "T" * 400,
+            "rooms": [{"name": "N" * 400, "description": "D" * 400, "exits": []}],
+        })
+
+        calls = mock_session.call_tool.call_args_list
+        assert calls[0][0][1]["name"] == "T" * 12
+        location = next(c for c in calls if c[0][0] == "create_location")[0][1]
+        assert location["name"] == "N" * 7
+        assert location["description"] == "D" * 9
+
+    @pytest.mark.asyncio
+    async def test_sends_an_undeclared_field_whole(self):
+        """connect_locations declared no bound on its directions until 0.5.0."""
+        schemas = {
+            "create_game": {"type": "object", "properties": {}},
+            "create_location": {"type": "object", "properties": {}},
+            "connect_locations": {"type": "object", "properties": {
+                "fromLocationId": {"type": "string", "maxLength": 100},
+                "toLocationId": {"type": "string", "maxLength": 100},
+            }},
+        }
+        mock_session = _mock_session(schemas)
+        mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("id-1"))
+
+        await load_game_with_session(mock_session, {
+            "title": "T",
+            "rooms": [
+                {"name": "A" * 400, "description": "d", "exits": ["B"]},
+                {"name": "B", "description": "d", "exits": []},
+            ],
+        })
+
+        connect = next(
+            c for c in mock_session.call_tool.call_args_list if c[0][0] == "connect_locations"
+        )[0][1]
+        assert connect["toDirection"] == "toward " + "A" * 400
 
     @pytest.mark.asyncio
     async def test_reports_web_ui_url(self):
@@ -756,7 +1001,7 @@ class TestRunDmcpToolContract:
         result_with_url.content = [MagicMock(text=json.dumps(
             {"id": "game-9", "webUi": {"url": "http://localhost:3456/games/game-9"}}
         ))]
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(side_effect=[
             result_with_url,
             self._make_mock_result("loc-1"),
@@ -776,7 +1021,7 @@ class TestRunDmcpToolContract:
                 "characters": ["Player", "Guard"],
             }],
         }
-        mock_session = AsyncMock()
+        mock_session = _mock_session()
         mock_session.call_tool = AsyncMock(return_value=self._make_mock_result("id-1"))
 
         await load_game_with_session(mock_session, game_data)
@@ -1200,6 +1445,9 @@ class TestSchemaDriftTolerance:
         class FakeSession:
             def __init__(self):
                 self.made = []
+
+            async def list_tools(self):
+                return _tools_result(recorded_tools())
 
             async def validate_tool_result(self, name, result):
                 return None

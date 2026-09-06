@@ -26,22 +26,32 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Mirrors of run-dmcp's src/utils/validation.ts LIMITS. Fields longer than
-# these are rejected by the server's zod schemas, which would abort a load
-# partway through -- clamp locally instead.
-NAME_MAX = 200
-DESCRIPTION_MAX = 5000
-CONTENT_MAX = 50000
+# THE FIELD LIMITS ARE READ, NOT COPIED.
+#
+# NAME_MAX / DESCRIPTION_MAX / CONTENT_MAX used to sit here, hand-copied from
+# run-dmcp's src/utils/validation.ts, under a rule in CLAUDE.md to change them
+# "in the same commit" as the engine -- an instruction that spans two
+# repositories and therefore cannot be followed by anyone. Nothing on either
+# side could see the other, and drift would have surfaced as silently
+# truncated content.
+#
+# It turns out the engine already publishes them and we never noticed: zod's
+# `.max()` lands in each tool's `input_schema` as `maxLength`, and `tools/list`
+# delivers it before the first call. So the loader asks.
+#
+# Same shape as _resolve_server_entry below, which stopped remembering a path
+# and started reading `package.json`. The engine was publishing the answer;
+# we were keeping our own.
 
 
 def truncate(text: str | None, limit: int) -> str:
-    """Clamp text to a run-dmcp field limit."""
+    """Clamp text to a length limit."""
     if not text:
         return ""
     return text if len(text) <= limit else text[:limit]
 
 
-def exit_direction(destination_name: str) -> str:
+def exit_direction(destination_name: str, limit: int | None) -> str:
     """Build the direction label for an exit leading to `destination_name`.
 
     run-dmcp stores exits keyed by direction and drops any existing exit that
@@ -49,8 +59,99 @@ def exit_direction(destination_name: str) -> str:
     distinct label. Adventurer's source JSON carries no compass data -- exits
     are just destination names -- so the destination is what makes the label
     unique, and it reads naturally when narrated.
+
+    `limit` is whatever the server declares for the direction field, and None
+    means it declared nothing -- in which case the label is left whole. This
+    loader used to clamp to 200 on a field run-dmcp declared with no bound at
+    all, a number borrowed from a different tool's declaration; run-dmcp bounds
+    the directions at 200 as of 0.5.0, and that arrived here with no change on
+    this side.
     """
-    return truncate(f"toward {destination_name}", NAME_MAX)
+    label = f"toward {destination_name}"
+    return label if limit is None else truncate(label, limit)
+
+
+def declared_string_limits(schemas: dict[str, Any]) -> dict[tuple[str, str], int]:
+    """Every `maxLength` a server declares, keyed by (tool name, field path).
+
+    Field paths are explicit and nested, because the fields are: `create_item`
+    takes its description at `properties.description`, not at the top level.
+    An array's items are `tags[]` and a record's values are `meta.*`.
+
+    A string with no `maxLength` is ABSENT from the result rather than given a
+    default. The absence is the finding -- see `FieldLimits.clamp`.
+
+    Structural: this reads JSON Schema keywords and never a description or a
+    field name's meaning. It does not follow `$ref`, and does not descend into
+    `anyOf`/`oneOf`, where there is no single declared ceiling to report; both
+    come back as "undeclared", which is honest and warns.
+    """
+    limits: dict[tuple[str, str], int] = {}
+
+    def walk(node: Any, tool: str, path: str) -> None:
+        if not isinstance(node, dict):
+            return
+        if node.get("type") == "string" and isinstance(node.get("maxLength"), int):
+            limits[(tool, path)] = node["maxLength"]
+        properties = node.get("properties")
+        if isinstance(properties, dict):
+            for key, sub in properties.items():
+                walk(sub, tool, f"{path}.{key}" if path else key)
+        values = node.get("additionalProperties")
+        if isinstance(values, dict):
+            walk(values, tool, f"{path}.*")
+        items = node.get("items")
+        if isinstance(items, dict):
+            walk(items, tool, f"{path}[]")
+
+    for tool, schema in schemas.items():
+        walk(schema, tool, "")
+    return limits
+
+
+class FieldLimits:
+    """What the server says its string parameters will take.
+
+    Built once per load from `tools/list`. A field the server declares
+    unbounded is NOT clamped: the loader follows the declaration, and warns
+    once so the silence is visible. Substituting a local number there would
+    keep the old mirrored constants alive under a different name, and remove
+    the invariant only halfway.
+    """
+
+    def __init__(self, limits: dict[tuple[str, str], int]):
+        self._limits = limits
+        self._warned: set[tuple[str, str]] = set()
+
+    @classmethod
+    async def from_session(cls, session) -> "FieldLimits":
+        """Read the declared limits from a live MCP session."""
+        result = await session.list_tools()
+        schemas = {tool.name: tool.input_schema for tool in result.tools}
+        limits = declared_string_limits(schemas)
+        logger.info(
+            "Read %d declared field limits from %d tools", len(limits), len(schemas)
+        )
+        return cls(limits)
+
+    def max_for(self, tool: str, field: str) -> int | None:
+        """The declared maximum for one field, or None if it declares none."""
+        return self._limits.get((tool, field))
+
+    def clamp(self, tool: str, field: str, text: str | None) -> str:
+        """Clamp `text` to what `tool`'s `field` declares it will take."""
+        limit = self._limits.get((tool, field))
+        if limit is None:
+            if (tool, field) not in self._warned:
+                self._warned.add((tool, field))
+                logger.warning(
+                    "%s declares no maximum for '%s'; sending it unclamped. If a "
+                    "load fails on that field's length, the fix belongs in the "
+                    "engine's schema, not in a number copied here.",
+                    tool, field,
+                )
+            return text or ""
+        return truncate(text, limit)
 
 
 async def load_game_with_session(
@@ -65,15 +166,18 @@ async def load_game_with_session(
     """
     reset_schema_drift_state()
 
-    title = truncate(game_data.get("title", "Untitled Adventure"), NAME_MAX)
+    # What the server says its fields will take, read before the first write.
+    limits = await FieldLimits.from_session(session)
+
+    title = limits.clamp("create_game", "name", game_data.get("title", "Untitled Adventure"))
     rooms = game_data.get("rooms", [])
 
     # Create the game
     print("\nCreating game...")
     game_result = await call_tool(session, "create_game", {
         "name": title,
-        "setting": truncate(setting, DESCRIPTION_MAX),
-        "style": truncate(style, NAME_MAX),
+        "setting": limits.clamp("create_game", "setting", setting),
+        "style": limits.clamp("create_game", "style", style),
     })
     game_id = extract_id_from_result(game_result, "game")
     web_ui_url = extract_web_ui_url(game_result)
@@ -83,8 +187,8 @@ async def load_game_with_session(
     print("\nCreating locations...")
     location_ids = {}
     for room in rooms:
-        name = truncate(room.get("name", "Unknown Room"), NAME_MAX)
-        description = truncate(room.get("description", ""), DESCRIPTION_MAX)
+        name = limits.clamp("create_location", "name", room.get("name", "Unknown Room"))
+        description = limits.clamp("create_location", "description", room.get("description", ""))
         atmosphere = room.get("atmosphere", "")
 
         args = {
@@ -95,7 +199,9 @@ async def load_game_with_session(
         # run-dmcp models atmosphere as a first-class location property, so it
         # no longer has to be appended to the prose description.
         if atmosphere:
-            args["properties"] = {"atmosphere": truncate(atmosphere, DESCRIPTION_MAX)}
+            args["properties"] = {
+                "atmosphere": limits.clamp("create_location", "properties.atmosphere", atmosphere)
+            }
 
         result = await call_tool(session, "create_location", args)
         loc_id = extract_id_from_result(result, "location")
@@ -136,8 +242,12 @@ async def load_game_with_session(
                 await call_tool(session, "connect_locations", {
                     "fromLocationId": source_id,
                     "toLocationId": target_id,
-                    "fromDirection": exit_direction(exit_name),
-                    "toDirection": exit_direction(source_name),
+                    "fromDirection": exit_direction(
+                        exit_name, limits.max_for("connect_locations", "fromDirection")
+                    ),
+                    "toDirection": exit_direction(
+                        source_name, limits.max_for("connect_locations", "toDirection")
+                    ),
                     "bidirectional": False,
                 })
                 connections_made += 1
@@ -165,7 +275,7 @@ async def load_game_with_session(
         try:
             result = await call_tool(session, "create_character", {
                 "gameId": game_id,
-                "name": truncate(char_name, NAME_MAX),
+                "name": limits.clamp("create_character", "name", char_name),
                 "isPlayer": char_name.lower() == "player",
                 "locationId": loc_id,
             })
@@ -191,9 +301,11 @@ async def load_game_with_session(
                     "gameId": game_id,
                     "ownerId": loc_id,
                     "ownerType": "location",
-                    "name": truncate(item_name, NAME_MAX),
+                    "name": limits.clamp("create_item", "name", item_name),
                     "properties": {
-                        "description": truncate(f"Found in {room_name}", DESCRIPTION_MAX),
+                        "description": limits.clamp(
+                            "create_item", "properties.description", f"Found in {room_name}"
+                        ),
                     },
                 })
                 items_created += 1
@@ -225,8 +337,8 @@ async def load_game_with_session(
         try:
             await call_tool(session, "create_note", {
                 "gameId": game_id,
-                "title": truncate(f"Source beats: {room_name}", NAME_MAX),
-                "content": truncate(content, CONTENT_MAX),
+                "title": limits.clamp("create_note", "title", f"Source beats: {room_name}"),
+                "content": limits.clamp("create_note", "content", content),
                 "category": "plot",
                 "relatedEntityId": loc_id,
                 "relatedEntityType": "location",

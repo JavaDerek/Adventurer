@@ -1,0 +1,1736 @@
+{
+  "_recorded": {
+    "server": "dmcp",
+    "version": "0.5.0",
+    "recorded_on": "2026-09-05",
+    "tools_served": 218,
+    "command": "python record_tool_schemas.py --server-path <run-dmcp>",
+    "note": "Recorded from a live server -- do not hand-edit. These are the input schemas the loader reads its field limits from."
+  },
+  "tools": {
+    "create_game": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Name for this game"
+        },
+        "setting": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 5000,
+          "description": "The game setting (e.g., 'dark fantasy', 'cyberpunk', 'cosmic horror')"
+        },
+        "style": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The narrative style (e.g., 'gritty', 'heroic', 'survival')"
+        }
+      },
+      "required": [
+        "name",
+        "setting",
+        "style"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "create_location": {
+      "type": "object",
+      "properties": {
+        "gameId": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "The game ID"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Location name"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 5000,
+          "description": "Location description"
+        },
+        "properties": {
+          "type": "object",
+          "properties": {
+            "features": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "maxItems": 100
+            },
+            "atmosphere": {
+              "type": "string",
+              "maxLength": 5000
+            }
+          },
+          "additionalProperties": false,
+          "description": "Additional location properties"
+        },
+        "imageGen": {
+          "type": "object",
+          "properties": {
+            "subject": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "character",
+                    "location",
+                    "item",
+                    "scene"
+                  ]
+                },
+                "primaryDescription": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "physicalTraits": {
+                  "type": "object",
+                  "properties": {
+                    "age": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "gender": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "bodyType": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "height": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "skinTone": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "hairColor": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "hairStyle": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "eyeColor": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "facialFeatures": {
+                      "type": "string",
+                      "maxLength": 5000
+                    },
+                    "distinguishingMarks": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "maxItems": 100
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "attire": {
+                  "type": "object",
+                  "properties": {
+                    "description": {
+                      "type": "string",
+                      "maxLength": 5000
+                    },
+                    "colors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "maxItems": 100
+                    },
+                    "materials": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "maxItems": 100
+                    },
+                    "accessories": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "maxItems": 100
+                    }
+                  },
+                  "required": [
+                    "description"
+                  ],
+                  "additionalProperties": false
+                },
+                "environment": {
+                  "type": "object",
+                  "properties": {
+                    "setting": {
+                      "type": "string",
+                      "maxLength": 5000
+                    },
+                    "timeOfDay": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "weather": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "lighting": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "architecture": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "vegetation": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "notableFeatures": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "maxItems": 100
+                    }
+                  },
+                  "required": [
+                    "setting"
+                  ],
+                  "additionalProperties": false
+                },
+                "objectDetails": {
+                  "type": "object",
+                  "properties": {
+                    "material": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "size": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "condition": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "glowOrEffects": {
+                      "type": "string",
+                      "maxLength": 5000
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "pose": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "expression": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "action": {
+                  "type": "string",
+                  "maxLength": 5000
+                }
+              },
+              "required": [
+                "type",
+                "primaryDescription"
+              ],
+              "additionalProperties": false
+            },
+            "style": {
+              "type": "object",
+              "properties": {
+                "artisticStyle": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "genre": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "mood": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "colorScheme": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "influences": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "maxItems": 100
+                },
+                "qualityTags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "maxItems": 100
+                },
+                "negativeElements": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "maxItems": 100
+                }
+              },
+              "required": [
+                "artisticStyle",
+                "genre",
+                "mood"
+              ],
+              "additionalProperties": false
+            },
+            "composition": {
+              "type": "object",
+              "properties": {
+                "framing": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "cameraAngle": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "aspectRatio": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "focusPoint": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "background": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "depth": {
+                  "type": "string",
+                  "maxLength": 200
+                }
+              },
+              "required": [
+                "framing"
+              ],
+              "additionalProperties": false
+            },
+            "prompts": {
+              "type": "object",
+              "properties": {
+                "generic": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "sdxl": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "dalle": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "midjourney": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "flux": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "comfyui": {
+                  "type": "object",
+                  "properties": {
+                    "positive": {
+                      "type": "string",
+                      "maxLength": 5000
+                    },
+                    "negative": {
+                      "type": "string",
+                      "maxLength": 5000
+                    },
+                    "checkpoint": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "loras": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "weight": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "weight"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "maxItems": 100
+                    },
+                    "samplerSettings": {
+                      "type": "object",
+                      "properties": {
+                        "sampler": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "scheduler": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "steps": {
+                          "type": "number"
+                        },
+                        "cfg": {
+                          "type": "number"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "positive",
+                    "negative"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "generations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "tool": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "base64": {
+                    "type": "string",
+                    "maxLength": 2000000
+                  },
+                  "seed": {
+                    "type": "number"
+                  },
+                  "timestamp": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {},
+                    "propertyNames": {
+                      "maxLength": 200
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "tool",
+                  "prompt",
+                  "timestamp"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 100
+            },
+            "consistency": {
+              "type": "object",
+              "properties": {
+                "characterRef": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "seedImage": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "colorPalette": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "maxItems": 100
+                },
+                "styleRef": {
+                  "type": "string",
+                  "maxLength": 5000
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "subject",
+            "style",
+            "composition"
+          ],
+          "additionalProperties": false,
+          "description": "Image generation metadata for location art"
+        }
+      },
+      "required": [
+        "gameId",
+        "name",
+        "description"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "connect_locations": {
+      "type": "object",
+      "properties": {
+        "fromLocationId": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "First location ID"
+        },
+        "toLocationId": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Second location ID"
+        },
+        "fromDirection": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Direction from first location (e.g., 'north', 'up', 'through the door')"
+        },
+        "toDirection": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Direction from second location back (e.g., 'south', 'down')"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 5000,
+          "description": "Description of the path"
+        },
+        "bidirectional": {
+          "type": "boolean",
+          "description": "Create exit in both directions (default: true)"
+        }
+      },
+      "required": [
+        "fromLocationId",
+        "toLocationId",
+        "fromDirection",
+        "toDirection"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "create_character": {
+      "type": "object",
+      "properties": {
+        "gameId": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "The game ID"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Character name"
+        },
+        "isPlayer": {
+          "type": "boolean",
+          "description": "True for player character, false for NPC"
+        },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          },
+          "propertyNames": {
+            "maxLength": 50
+          },
+          "description": "Character attributes"
+        },
+        "skills": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          },
+          "propertyNames": {
+            "maxLength": 50
+          },
+          "description": "Character skills"
+        },
+        "status": {
+          "type": "object",
+          "properties": {
+            "health": {
+              "type": "number"
+            },
+            "maxHealth": {
+              "type": "number"
+            },
+            "conditions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "maxItems": 100
+            },
+            "experience": {
+              "type": "number"
+            },
+            "level": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Initial status"
+        },
+        "locationId": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Starting location"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 50000,
+          "description": "Character notes"
+        },
+        "voice": {
+          "type": "object",
+          "properties": {
+            "pitch": {
+              "type": "string",
+              "enum": [
+                "very_low",
+                "low",
+                "medium",
+                "high",
+                "very_high"
+              ],
+              "description": "Voice pitch"
+            },
+            "speed": {
+              "type": "string",
+              "enum": [
+                "very_slow",
+                "slow",
+                "medium",
+                "fast",
+                "very_fast"
+              ],
+              "description": "Speaking speed"
+            },
+            "tone": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Voice tone (e.g., 'gravelly', 'melodic', 'nasal', 'breathy')"
+            },
+            "accent": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Accent (e.g., 'Scottish', 'French', 'Brooklyn')"
+            },
+            "quirks": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "maxItems": 100,
+              "description": "Speech quirks (e.g., 'stutters when nervous')"
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 5000,
+              "description": "Free-form voice description for more nuance"
+            }
+          },
+          "required": [
+            "pitch",
+            "speed",
+            "tone"
+          ],
+          "additionalProperties": false,
+          "description": "Voice characteristics for TTS/voice mode"
+        },
+        "imageGen": {
+          "type": "object",
+          "properties": {
+            "subject": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "character",
+                    "location",
+                    "item",
+                    "scene"
+                  ]
+                },
+                "primaryDescription": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "physicalTraits": {
+                  "type": "object",
+                  "properties": {
+                    "age": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "gender": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "bodyType": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "height": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "skinTone": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "hairColor": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "hairStyle": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "eyeColor": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "facialFeatures": {
+                      "type": "string",
+                      "maxLength": 5000
+                    },
+                    "distinguishingMarks": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "maxItems": 100
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "attire": {
+                  "type": "object",
+                  "properties": {
+                    "description": {
+                      "type": "string",
+                      "maxLength": 5000
+                    },
+                    "colors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "maxItems": 100
+                    },
+                    "materials": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "maxItems": 100
+                    },
+                    "accessories": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "maxItems": 100
+                    }
+                  },
+                  "required": [
+                    "description"
+                  ],
+                  "additionalProperties": false
+                },
+                "environment": {
+                  "type": "object",
+                  "properties": {
+                    "setting": {
+                      "type": "string",
+                      "maxLength": 5000
+                    },
+                    "timeOfDay": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "weather": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "lighting": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "architecture": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "vegetation": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "notableFeatures": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "maxItems": 100
+                    }
+                  },
+                  "required": [
+                    "setting"
+                  ],
+                  "additionalProperties": false
+                },
+                "objectDetails": {
+                  "type": "object",
+                  "properties": {
+                    "material": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "size": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "condition": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "glowOrEffects": {
+                      "type": "string",
+                      "maxLength": 5000
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "pose": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "expression": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "action": {
+                  "type": "string",
+                  "maxLength": 5000
+                }
+              },
+              "required": [
+                "type",
+                "primaryDescription"
+              ],
+              "additionalProperties": false
+            },
+            "style": {
+              "type": "object",
+              "properties": {
+                "artisticStyle": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "genre": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "mood": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "colorScheme": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "influences": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "maxItems": 100
+                },
+                "qualityTags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "maxItems": 100
+                },
+                "negativeElements": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "maxItems": 100
+                }
+              },
+              "required": [
+                "artisticStyle",
+                "genre",
+                "mood"
+              ],
+              "additionalProperties": false
+            },
+            "composition": {
+              "type": "object",
+              "properties": {
+                "framing": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "cameraAngle": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "aspectRatio": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "focusPoint": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "background": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "depth": {
+                  "type": "string",
+                  "maxLength": 200
+                }
+              },
+              "required": [
+                "framing"
+              ],
+              "additionalProperties": false
+            },
+            "prompts": {
+              "type": "object",
+              "properties": {
+                "generic": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "sdxl": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "dalle": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "midjourney": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "flux": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "comfyui": {
+                  "type": "object",
+                  "properties": {
+                    "positive": {
+                      "type": "string",
+                      "maxLength": 5000
+                    },
+                    "negative": {
+                      "type": "string",
+                      "maxLength": 5000
+                    },
+                    "checkpoint": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "loras": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "weight": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "weight"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "maxItems": 100
+                    },
+                    "samplerSettings": {
+                      "type": "object",
+                      "properties": {
+                        "sampler": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "scheduler": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "steps": {
+                          "type": "number"
+                        },
+                        "cfg": {
+                          "type": "number"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "positive",
+                    "negative"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "generations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "tool": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "base64": {
+                    "type": "string",
+                    "maxLength": 2000000
+                  },
+                  "seed": {
+                    "type": "number"
+                  },
+                  "timestamp": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {},
+                    "propertyNames": {
+                      "maxLength": 200
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "tool",
+                  "prompt",
+                  "timestamp"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 100
+            },
+            "consistency": {
+              "type": "object",
+              "properties": {
+                "characterRef": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "seedImage": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "colorPalette": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "maxItems": 100
+                },
+                "styleRef": {
+                  "type": "string",
+                  "maxLength": 5000
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "subject",
+            "style",
+            "composition"
+          ],
+          "additionalProperties": false,
+          "description": "Image generation metadata for character portraits"
+        }
+      },
+      "required": [
+        "gameId",
+        "name",
+        "isPlayer"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "create_item": {
+      "type": "object",
+      "properties": {
+        "gameId": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "The game ID"
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Character or location ID that owns the item"
+        },
+        "ownerType": {
+          "type": "string",
+          "enum": [
+            "character",
+            "location"
+          ],
+          "description": "Owner type"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Item name"
+        },
+        "properties": {
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string",
+              "maxLength": 5000
+            },
+            "type": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "weight": {
+              "type": "number"
+            },
+            "value": {
+              "type": "number"
+            },
+            "effects": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "maxItems": 100
+            }
+          },
+          "additionalProperties": false,
+          "description": "Item properties"
+        },
+        "imageGen": {
+          "type": "object",
+          "properties": {
+            "subject": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "character",
+                    "location",
+                    "item",
+                    "scene"
+                  ]
+                },
+                "primaryDescription": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "physicalTraits": {
+                  "type": "object",
+                  "properties": {
+                    "age": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "gender": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "bodyType": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "height": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "skinTone": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "hairColor": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "hairStyle": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "eyeColor": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "facialFeatures": {
+                      "type": "string",
+                      "maxLength": 5000
+                    },
+                    "distinguishingMarks": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "maxItems": 100
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "attire": {
+                  "type": "object",
+                  "properties": {
+                    "description": {
+                      "type": "string",
+                      "maxLength": 5000
+                    },
+                    "colors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "maxItems": 100
+                    },
+                    "materials": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "maxItems": 100
+                    },
+                    "accessories": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "maxItems": 100
+                    }
+                  },
+                  "required": [
+                    "description"
+                  ],
+                  "additionalProperties": false
+                },
+                "environment": {
+                  "type": "object",
+                  "properties": {
+                    "setting": {
+                      "type": "string",
+                      "maxLength": 5000
+                    },
+                    "timeOfDay": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "weather": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "lighting": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "architecture": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "vegetation": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "notableFeatures": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "maxItems": 100
+                    }
+                  },
+                  "required": [
+                    "setting"
+                  ],
+                  "additionalProperties": false
+                },
+                "objectDetails": {
+                  "type": "object",
+                  "properties": {
+                    "material": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "size": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "condition": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "glowOrEffects": {
+                      "type": "string",
+                      "maxLength": 5000
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "pose": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "expression": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "action": {
+                  "type": "string",
+                  "maxLength": 5000
+                }
+              },
+              "required": [
+                "type",
+                "primaryDescription"
+              ],
+              "additionalProperties": false
+            },
+            "style": {
+              "type": "object",
+              "properties": {
+                "artisticStyle": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "genre": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "mood": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "colorScheme": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "influences": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "maxItems": 100
+                },
+                "qualityTags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "maxItems": 100
+                },
+                "negativeElements": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "maxItems": 100
+                }
+              },
+              "required": [
+                "artisticStyle",
+                "genre",
+                "mood"
+              ],
+              "additionalProperties": false
+            },
+            "composition": {
+              "type": "object",
+              "properties": {
+                "framing": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "cameraAngle": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "aspectRatio": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "focusPoint": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "background": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "depth": {
+                  "type": "string",
+                  "maxLength": 200
+                }
+              },
+              "required": [
+                "framing"
+              ],
+              "additionalProperties": false
+            },
+            "prompts": {
+              "type": "object",
+              "properties": {
+                "generic": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "sdxl": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "dalle": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "midjourney": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "flux": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "comfyui": {
+                  "type": "object",
+                  "properties": {
+                    "positive": {
+                      "type": "string",
+                      "maxLength": 5000
+                    },
+                    "negative": {
+                      "type": "string",
+                      "maxLength": 5000
+                    },
+                    "checkpoint": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "loras": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "weight": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "weight"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "maxItems": 100
+                    },
+                    "samplerSettings": {
+                      "type": "object",
+                      "properties": {
+                        "sampler": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "scheduler": {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        "steps": {
+                          "type": "number"
+                        },
+                        "cfg": {
+                          "type": "number"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "positive",
+                    "negative"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "generations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "tool": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 5000
+                  },
+                  "base64": {
+                    "type": "string",
+                    "maxLength": 2000000
+                  },
+                  "seed": {
+                    "type": "number"
+                  },
+                  "timestamp": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {},
+                    "propertyNames": {
+                      "maxLength": 200
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "tool",
+                  "prompt",
+                  "timestamp"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 100
+            },
+            "consistency": {
+              "type": "object",
+              "properties": {
+                "characterRef": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "seedImage": {
+                  "type": "string",
+                  "maxLength": 5000
+                },
+                "colorPalette": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "maxItems": 100
+                },
+                "styleRef": {
+                  "type": "string",
+                  "maxLength": 5000
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "subject",
+            "style",
+            "composition"
+          ],
+          "additionalProperties": false,
+          "description": "Image generation metadata for item art"
+        }
+      },
+      "required": [
+        "gameId",
+        "ownerId",
+        "ownerType",
+        "name"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "create_note": {
+      "type": "object",
+      "properties": {
+        "gameId": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "The game ID"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Note title"
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 50000,
+          "description": "Note content (supports markdown)"
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Category (e.g., 'plot', 'npc', 'location', 'idea', 'recap')"
+        },
+        "relatedEntityId": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "ID of related entity"
+        },
+        "relatedEntityType": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Type of related entity"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "maxItems": 100,
+          "description": "Tags for the note"
+        },
+        "pinned": {
+          "type": "boolean",
+          "description": "Pin this note"
+        }
+      },
+      "required": [
+        "gameId",
+        "title",
+        "content"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  }
+}

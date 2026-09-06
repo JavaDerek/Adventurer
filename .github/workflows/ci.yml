@@ -51,3 +51,4 @@ jobs:
         python -m py_compile load_to_run_dmcp.py
         python -m py_compile analyze_map.py
         python -m py_compile heal_map.py
+        python -m py_compile record_tool_schemas.py
