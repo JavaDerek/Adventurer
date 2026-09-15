@@ -17,6 +17,24 @@ Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before making structural
 changes, and [docs/RUN_DMCP_INTEGRATION.md](docs/RUN_DMCP_INTEGRATION.md) before
 touching `load_to_run_dmcp.py`.
 
+## Before adding gameplay mechanics to loaded games
+
+Today this pipeline loads rooms, items, characters, connections and notes —
+no properties, no effects, no free-text adjudication of any kind, so nothing
+in a loaded game currently cites an object's own description to justify
+anything. If that changes — a future stage adds declared properties/effects
+here, or a downstream consumer plays a loaded game through a referee that
+rules free text against object descriptions the way run-dmcp's
+`createTurnReader` does — read run-dmcp's
+[docs/AUTHORING-GUIDE.md](https://github.com/JavaDerek/run-dmcp/blob/main/docs/AUTHORING-GUIDE.md)
+first. Its central lesson: a citation-grounded effect can only ever succeed
+if the target's own authored description actually contains groundable
+language for it, and `process_transcript_full.py`'s extraction prompt is
+where that would have to be designed in — fixing it after hundreds of rooms
+are already extracted costs far more than writing the prompt right the first
+time. Nothing here needs changing on this basis today; this is a pointer for
+whoever adds that layer next, not a task.
+
 ## Setup
 
 ```bash
