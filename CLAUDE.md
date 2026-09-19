@@ -36,8 +36,14 @@ time. A later lesson in the same guide is worth the same read before that
 stage exists: declaring what a room or item's *kind* may ever come to have is
 separate authoring work from writing what one instance's description says
 today, and the extraction prompt would need to produce both, not collapse
-them into one pass. Nothing here needs changing on this basis today; this is
-a pointer for whoever adds that layer next, not a task.
+them into one pass. The guide's surfaces lesson is the one most likely to
+bite here first: a room extracted from fiction carries its floor, walls and
+ceiling in prose and nothing in the room graph, and a character who digs,
+climbs or breaks through one will have the attempt filed as something else.
+The extraction prompt is where a floor becomes an item with a material,
+designed in before hundreds of rooms are extracted, not retrofitted. Nothing
+here needs changing on this basis today; this is a pointer for whoever adds
+that layer next, not a task.
 
 ## Setup
 
