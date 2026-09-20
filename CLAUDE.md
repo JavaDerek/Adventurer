@@ -41,9 +41,16 @@ bite here first: a room extracted from fiction carries its floor, walls and
 ceiling in prose and nothing in the room graph, and a character who digs,
 climbs or breaks through one will have the attempt filed as something else.
 The extraction prompt is where a floor becomes an item with a material,
-designed in before hundreds of rooms are extracted, not retrofitted. Nothing
-here needs changing on this basis today; this is a pointer for whoever adds
-that layer next, not a task.
+designed in before hundreds of rooms are extracted, not retrofitted. Two
+measured caveats were added to that lesson on 2026-09-20 and both matter more
+at this scale than at one room's: declaring the surface only helps attempts
+whose words NAME the surface, because the reader picks its target from the
+intent's own words and no description redirects it; and an attempt naming
+nothing the world models is not answered with "nothing here" but captured by
+the nearest thing in the list and ruled to change it. In a 568-room load that
+second one is a soundness question, not a richness one. Nothing here needs
+changing on this basis today; this is a pointer for whoever adds that layer
+next, not a task.
 
 ## Setup
 
