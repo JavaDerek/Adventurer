@@ -52,6 +52,26 @@ second one is a soundness question, not a richness one. Nothing here needs
 changing on this basis today; this is a pointer for whoever adds that layer
 next, not a task.
 
+The guide's two newest lessons (2026-09-26) are the same kind of pointer, stated
+forward-looking because this pipeline runs no reader and declares no properties
+today. The first — measure a reader against the population that will actually
+write to it, not only against intents shaped like its own answer keys — has no
+target here yet: there is no free-text adjudication to measure. It becomes
+relevant the moment a downstream consumer adds one, and at that point the right
+population is real play transcripts (or this pipeline's own extracted text), not
+only synthetic intents used to build the reader. The second applies now, to
+prose this pipeline already writes at scale: `process_transcript_full.py`'s
+extraction stage produces every room, item and character description, one at a
+time, with no cross-check against sibling objects' names. A description that
+borrows another extracted object's name — or a plural of one when the source
+material names several but the extraction keeps only one — is exactly the shape
+this pipeline is positioned to introduce hundreds of times before anyone reads
+one back closely. Nothing here needs changing on this basis today, since no
+loaded game yet cites an object's own description for anything (this file's own
+opening paragraph); this is a check worth adding to the extraction prompt before
+a future gameplay or adjudication layer needs these descriptions to hold up,
+per root `CLAUDE.md`'s "world-authoring lessons, growing."
+
 ## Setup
 
 ```bash
