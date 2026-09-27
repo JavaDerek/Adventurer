@@ -72,6 +72,14 @@ opening paragraph); this is a check worth adding to the extraction prompt before
 a future gameplay or adjudication layer needs these descriptions to hold up,
 per root `CLAUDE.md`'s "world-authoring lessons, growing."
 
+The guide's two 2026-09-27 lessons — what one character perceives of another's
+act is the attempt while the object's own described state carries the outcome,
+and a property worked over several turns should read differently as it moves,
+through authored reading bands — both land on extraction too: an extracted
+description should carry the concrete words (material, fastening, condition) a
+banded reading or an outcome line would later hang on, because a layer added
+after the load can only band what the description already names.
+
 ## Setup
 
 ```bash
