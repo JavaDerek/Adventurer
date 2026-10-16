@@ -80,6 +80,12 @@ description should carry the concrete words (material, fastening, condition) a
 banded reading or an outcome line would later hang on, because a layer added
 after the load can only band what the description already names.
 
+The guide's 2026-10-16 lesson, "unlisted is not impossible", is the same kind of
+forward-looking pointer: if a gameplay or adjudication layer is ever built on these
+loads, decide at extraction time which character or object values may receive
+bounded improvised rulings. A world whose referee refuses every act it does not
+list is closed, however rich its rooms.
+
 ## Setup
 
 ```bash
