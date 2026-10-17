@@ -86,6 +86,18 @@ loads, decide at extraction time which character or object values may receive
 bounded improvised rulings. A world whose referee refuses every act it does not
 list is closed, however rich its rooms.
 
+The guide's 2026-10-17 lesson, "a goal is an aim, declared once, that the world's
+own changes can reach", is forward-looking here too, except for its first point,
+which applies to what this pipeline already writes: declare each thing once. A
+door or a ledge the source names can come out of extraction both as an item in a
+room and as a connection or room of its own, and two entities for one thing give
+a later reader two places to land. If a goal layer is ever built on these loads,
+state each goal as the aim the source describes, not the method one transcript
+used, and make every clause reachable by the loaded world's own changes. The
+lesson behind its five points applies now: a correction to extracted content
+belongs in `process_transcript_full.py`'s extraction prompt, where every later
+load is extracted under it, not as a hand edit to one loaded game.
+
 ## Setup
 
 ```bash
