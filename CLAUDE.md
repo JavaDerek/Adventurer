@@ -98,6 +98,14 @@ lesson behind its five points applies now: a correction to extracted content
 belongs in `process_transcript_full.py`'s extraction prompt, where every later
 load is extracted under it, not as a hand edit to one loaded game.
 
+The guide's 2026-10-18 lesson applies to what extraction writes today: a
+condition the source gives a thing that play could change (a locked door, a lit
+lamp, a broken bridge) belongs in a value, not baked into its name or
+description, because a name never changes and every later reading still says
+"locked". If extraction ever gets an automated check, the lesson's second half
+is the design: a model judging each entity against each checklist line, three
+times with a majority, every fail quoting the extracted text verbatim.
+
 ## Setup
 
 ```bash
