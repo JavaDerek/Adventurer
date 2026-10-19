@@ -106,6 +106,11 @@ description, because a name never changes and every later reading still says
 is the design: a model judging each entity against each checklist line, three
 times with a majority, every fail quoting the extracted text verbatim.
 
+The guide's 2026-10-19 lesson sharpens it: a state is a condition even when it is
+not a defect (a lamp lit, a chest open, a bucket full), and a substance a player
+might pour or carry (the water in a jug, oil in a lamp) is an item of its own in
+its container, not a property of the container.
+
 ## Setup
 
 ```bash
