@@ -111,6 +111,10 @@ not a defect (a lamp lit, a chest open, a bucket full), and a substance a player
 might pour or carry (the water in a jug, oil in a lamp) is an item of its own in
 its container, not a property of the container.
 
+The guide's 2026-10-19 afternoon lesson is for whoever writes extraction rules:
+phrase each by what a thing is (every rope, cloth or sheet declares that it
+bends), never by how a player might use it, or the rule smuggles in a solution.
+
 ## Setup
 
 ```bash
