@@ -115,6 +115,12 @@ The guide's 2026-10-19 afternoon lesson is for whoever writes extraction rules:
 phrase each by what a thing is (every rope, cloth or sheet declares that it
 bends), never by how a player might use it, or the rule smuggles in a solution.
 
+The guide's 2026-11-03 lesson applies to extraction now: a character's own body
+part (a tooth, a hand) is never extracted as a loose item that sits somewhere,
+and how a body feels belongs to the character, not the part. Declare a part that
+can be harmed or detached only where the source text says so, never from a name
+or a gender.
+
 ## Setup
 
 ```bash
