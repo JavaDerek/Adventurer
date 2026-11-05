@@ -115,6 +115,9 @@ The guide's 2026-10-19 afternoon lesson is for whoever writes extraction rules:
 phrase each by what a thing is (every rope, cloth or sheet declares that it
 bends), never by how a player might use it, or the rule smuggles in a solution.
 
+The guide's 2026-11-05 lesson is forward-looking here too: if characters ever fight, each
+needs a reason of their own, and extraction is where a character's reason would be captured.
+
 The guide's 2026-11-04 lesson is forward-looking here, since these games declare
 no values yet: if a gameplay layer ever lets two characters fight, whether a blow
 lands, how much a thing in the hand can hurt and what leaves the hand are settled
