@@ -115,6 +115,12 @@ The guide's 2026-10-19 afternoon lesson is for whoever writes extraction rules:
 phrase each by what a thing is (every rope, cloth or sheet declares that it
 bends), never by how a player might use it, or the rule smuggles in a solution.
 
+The guide's 2026-11-04 lesson is forward-looking here, since these games declare
+no values yet: if a gameplay layer ever lets two characters fight, whether a blow
+lands, how much a thing in the hand can hurt and what leaves the hand are settled
+by code from declared data, not by a referee's reading of one step. Extraction is
+where a thing's capacity to hurt would have to be captured.
+
 The guide's 2026-11-03 lesson applies to extraction now: a character's own body
 part (a tooth, a hand) is never extracted as a loose item that sits somewhere,
 and how a body feels belongs to the character, not the part. Declare a part that
