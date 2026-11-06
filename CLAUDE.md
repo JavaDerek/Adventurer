@@ -53,11 +53,10 @@ changing on this basis today; this is a pointer for whoever adds that layer
 next, not a task.
 
 Two later lessons (2026-11-06) bear on the same extraction stage, and are the same
-kind of forward-looking pointer. First: an object whose use would change
-something beyond itself (who holds land, food, money or safety; how a person
-fares) says in its own description what that change is and to whom, never only
-what it is; fiction names a will, a treaty or a key by what it is and leaves the
-consequence to the reader, which a referee cannot rule on. Second: a character's
+kind of forward-looking pointer. First: a ruling must be able to say what an
+act costs, and an object's own description should be read before it is blamed
+for a ruling; a treaty ruled to change nothing turned out to say it took effect
+only when both parties signed. Second: a character's
 values and its readiness to act are separate traits, and only a situation where
 acting is an intervention shows the second; 602 extracted characters described
 in one sentence each would collapse the two. Nothing here needs changing today.
