@@ -52,7 +52,17 @@ second one is a soundness question, not a richness one. Nothing here needs
 changing on this basis today; this is a pointer for whoever adds that layer
 next, not a task.
 
-The guide's two newest lessons (2026-09-26) are the same kind of pointer, stated
+Two later lessons (2026-11-06) bear on the same extraction stage, and are the same
+kind of forward-looking pointer. First: an object whose use would change
+something beyond itself (who holds land, food, money or safety; how a person
+fares) says in its own description what that change is and to whom, never only
+what it is; fiction names a will, a treaty or a key by what it is and leaves the
+consequence to the reader, which a referee cannot rule on. Second: a character's
+values and its readiness to act are separate traits, and only a situation where
+acting is an intervention shows the second; 602 extracted characters described
+in one sentence each would collapse the two. Nothing here needs changing today.
+
+The guide's two lessons of 2026-09-26 are the same kind of pointer, stated
 forward-looking because this pipeline runs no reader and declares no properties
 today. The first — measure a reader against the population that will actually
 write to it, not only against intents shaped like its own answer keys — has no
