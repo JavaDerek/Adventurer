@@ -61,6 +61,14 @@ values and its readiness to act are separate traits, and only a situation where
 acting is an intervention shows the second; 602 extracted characters described
 in one sentence each would collapse the two. Nothing here needs changing today.
 
+A third (2026-11-08), the same kind of pointer: a character is handed only what
+the character would know, said as the character would say it. Everything in a
+role prompt is something the character may say, so a model voicing one of the
+602 extracted characters will repeat whatever the extraction stage left in its
+description: provenance notes, loader remarks, anything about how the record
+was checked. Keep descriptions to what the character would know; keep the
+bookkeeping in the loader's own output. Nothing here needs changing today.
+
 The guide's two lessons of 2026-09-26 are the same kind of pointer, stated
 forward-looking because this pipeline runs no reader and declares no properties
 today. The first — measure a reader against the population that will actually
